@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  app:
+    image: farmhub
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_APPLICATION_NAME: farmhub
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/farmhub
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      APPLICATION_SECURITY_JWT_SECRET_KEY: 8688ef4668947738601b8f5d6754498fa28c7d8178b7a151c912c3b30dd7ed6d
+      APPLICATION_SECURITY_JWT_ACCESS_TOKEN_EXPIRATION: 3600000
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: farmhub
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
