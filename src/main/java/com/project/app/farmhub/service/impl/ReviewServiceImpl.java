@@ -8,10 +8,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.entity.Review;
-import com.project.app.farmhub.entity.User;
 import com.project.app.farmhub.error.ConstraintValidationException;
 import com.project.app.farmhub.error.ErrorMessageConstant;
-import com.project.app.farmhub.repository.ReviewRepository;
+import com.project.app.farmhub.helper.SecurityHelper;
+import com.project.app.farmhub.repository.MasterRepository;
 import com.project.app.farmhub.request.CreateReviewRequest;
 import com.project.app.farmhub.request.UpdateReviewRequest;
 import com.project.app.farmhub.response.ReviewResponse;
@@ -26,7 +26,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ReviewServiceImpl implements ReviewService {
 
-	private final ReviewRepository repository;
+	private final MasterRepository<Review, String> repository;
 	private final UserDetailsServiceImp userService;
 	private final ProductService productService;
 
@@ -37,15 +37,13 @@ public class ReviewServiceImpl implements ReviewService {
 	public void add(CreateReviewRequest request) {
 		validateNonBk(request);
 		Review entity = new Review();
-		User currentUser = new User();
-		currentUser.setId("1");
-		currentUser.setUsername("Agus");
-		if (currentUser.getId() == null) {
+		String currentUserId = SecurityHelper.getCurrentUserId();
+		if (currentUserId == null) {
 			throw new IllegalArgumentException("Unable to get the current user ID.");
 		}
-		entity.setUmkm(userService.getEntityById(currentUser.getId()).orElse(null));
+		entity.setUmkm(userService.getEntityById(currentUserId).orElse(null));
 		mapToEntity(entity, request);
-		repository.saveAndFlush(entity);
+		repository.save(entity);
 
 	}
 
@@ -73,16 +71,19 @@ public class ReviewServiceImpl implements ReviewService {
 		getEntityById(request.getId()).ifPresentOrElse(entity -> {
 			validateNonBk(request);
 			mapToEntity(entity, request);
-			repository.saveAndFlush(entity);
+			repository.save(entity);
 		}, () -> {
 			throw new ConstraintValidationException("id", ErrorMessageConstant.IS_NOT_EXISTS);
 		});
 
 	}
-
+	
+	@Transactional
 	@Override
 	public void delete(String id) {
-		repository.findById(id).ifPresentOrElse(entity -> repository.deleteById(id), () -> {
+		getEntityById(id).ifPresentOrElse(entity -> {
+			repository.delete(entity);
+		}, () -> {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id is not exist");
 		});
 
@@ -90,7 +91,7 @@ public class ReviewServiceImpl implements ReviewService {
 
 	@Override
 	public Optional<Review> getEntityById(String id) {
-		return repository.findById(id);
+		return repository.findById(id, Review.class);
 	}
 
 	@Override
@@ -102,7 +103,7 @@ public class ReviewServiceImpl implements ReviewService {
 
 	@Override
 	public List<ReviewResponse> getAll() {
-		List<Review> detail = repository.findAll();
+		List<Review> detail = repository.findAll(Review.class);
 		return detail.stream().map(this::mapToResponse).toList();
 	}
 

@@ -11,7 +11,7 @@ import com.project.app.farmhub.entity.Product;
 import com.project.app.farmhub.error.ConstraintValidationException;
 import com.project.app.farmhub.error.ErrorMessageConstant;
 import com.project.app.farmhub.helper.SecurityHelper;
-import com.project.app.farmhub.repository.ProductRepository;
+import com.project.app.farmhub.repository.MasterRepository;
 import com.project.app.farmhub.request.CreateProductRequest;
 import com.project.app.farmhub.request.UpdateProductRequest;
 import com.project.app.farmhub.response.ProductResponse;
@@ -26,13 +26,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
 
-	private final ProductRepository repository;
+	private final MasterRepository<Product, String> repository;
 	private final UserDetailsServiceImp userService;
 
 	@Transactional
 	@Override
 	public void add(CreateProductRequest request) {
-
 		validateRole("add");
 		validateBkNotExist(request);
 		Product entity = new Product();
@@ -42,23 +41,20 @@ public class ProductServiceImpl implements ProductService {
 		}
 		entity.setFarmer(userService.getEntityById(currentUserId).orElse(null));
 		mapToEntity(entity, request);
-		repository.saveAndFlush(entity);
-
+		repository.save(entity);
 	}
 
 	private void validateRole(String action) {
 		if (!SecurityHelper.hasRole("FARMER")) {
 			throw new IllegalArgumentException("Only users with role FARMER can " + action + " products.");
 		}
-
 	}
 
 	private void validateBkNotExist(CreateProductRequest request) {
-		Optional.of(request)
-        .filter(req -> repository.existsByCode(req.getCode()))
-        .ifPresent(req -> {
-            throw new ValidationException("code is exist");
-        });
+		long count = repository.countByField("code", request.getCode(), Product.class);
+		if (count > 0) {
+			throw new ValidationException("code is exist");
+		}
 	}
 
 	private void validateBkNotChange(UpdateProductRequest request, Product entity) {
@@ -68,7 +64,6 @@ public class ProductServiceImpl implements ProductService {
 	}
 
 	private void mapToEntity(Product entity, CreateProductRequest request) {
-
 		entity.setCode(request.getCode());
 		entity.setName(request.getName());
 		entity.setDescription(request.getDescription());
@@ -83,37 +78,38 @@ public class ProductServiceImpl implements ProductService {
 		getEntityById(request.getId()).ifPresentOrElse(entity -> {
 			validateBkNotChange(request, entity);
 			mapToEntity(entity, request);
-			repository.saveAndFlush(entity);
+			repository.save(entity);
 		}, () -> {
 			throw new ConstraintValidationException("id", ErrorMessageConstant.IS_NOT_EXISTS);
 		});
-
 	}
 
+	@Transactional
 	@Override
 	public void delete(String id) {
 		validateRole("delete");
-		repository.findById(id).ifPresentOrElse(entity -> repository.deleteById(id), () -> {
+		getEntityById(id).ifPresentOrElse(entity -> {
+			repository.delete(entity);
+		}, () -> {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id is not exist");
 		});
-
 	}
 
 	@Override
 	public Optional<Product> getEntityById(String id) {
-		return repository.findById(id);
+		return repository.findById(id, Product.class);
 	}
 
 	@Override
 	public ProductResponse getById(String id) {
 		Product entity = getEntityById(id)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "id" + " is not exist"));
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "id is not exist"));
 		return mapToResponse(entity);
 	}
 
 	@Override
 	public List<ProductResponse> getAll() {
-		List<Product> detail = repository.findAll();
+		List<Product> detail = repository.findAll(Product.class);
 		return detail.stream().map(this::mapToResponse).toList();
 	}
 
@@ -134,9 +130,9 @@ public class ProductServiceImpl implements ProductService {
 		return response;
 	}
 
+	@Transactional
 	@Override
 	public Product changeTotalStock(Product product) {
 		return repository.save(product);
 	}
-
 }

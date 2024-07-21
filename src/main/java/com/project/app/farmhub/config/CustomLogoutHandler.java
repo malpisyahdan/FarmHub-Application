@@ -1,20 +1,21 @@
 package com.project.app.farmhub.config;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
 
 import com.project.app.farmhub.entity.Token;
-import com.project.app.farmhub.repository.TokenRepository;
+import com.project.app.farmhub.repository.TokenRepositoryImpl;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 public class CustomLogoutHandler implements LogoutHandler {
 
-	private final TokenRepository tokenRepository;
+	private final TokenRepositoryImpl tokenRepository;
 
-	public CustomLogoutHandler(TokenRepository tokenRepository) {
+	public CustomLogoutHandler(TokenRepositoryImpl tokenRepository) {
 		this.tokenRepository = tokenRepository;
 	}
 

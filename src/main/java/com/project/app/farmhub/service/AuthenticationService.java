@@ -9,17 +9,18 @@ import org.springframework.stereotype.Service;
 
 import com.project.app.farmhub.entity.Token;
 import com.project.app.farmhub.entity.User;
+import com.project.app.farmhub.repository.MasterRepository;
 import com.project.app.farmhub.repository.TokenRepository;
-import com.project.app.farmhub.repository.UserRepository;
 import com.project.app.farmhub.response.AuthenticationResponse;
 
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 
 @Service
 @AllArgsConstructor
 public class AuthenticationService {
 
-	private final UserRepository repository;
+	private final MasterRepository<User, String> repository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
 
@@ -27,10 +28,10 @@ public class AuthenticationService {
 
 	private final AuthenticationManager authenticationManager;
 
+	@Transactional
 	public AuthenticationResponse register(User request) {
-
-		if (repository.findByUsername(request.getUsername()).isPresent()) {
-			return new AuthenticationResponse(null, "User already exist");
+		if (repository.findByField("username", request.getUsername(), User.class).isPresent()) {
+			return new AuthenticationResponse(null, "User already exists");
 		}
 
 		User user = new User();
@@ -38,7 +39,6 @@ public class AuthenticationService {
 		user.setLastName(request.getLastName());
 		user.setUsername(request.getUsername());
 		user.setPassword(passwordEncoder.encode(request.getPassword()));
-
 		user.setRole(request.getRole());
 
 		user = repository.save(user);
@@ -48,14 +48,14 @@ public class AuthenticationService {
 		saveUserToken(accessToken, user);
 
 		return new AuthenticationResponse(accessToken, "User registration was successful");
-
 	}
 
+	@Transactional
 	public AuthenticationResponse authenticate(User request) {
 		authenticationManager
 				.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
 
-		User user = repository.findByUsername(request.getUsername()).orElseThrow();
+		User user = repository.findByField("username", request.getUsername(), User.class).orElseThrow();
 		String accessToken = jwtService.generateAccessToken(user);
 
 		revokeAllTokenByUser(user);

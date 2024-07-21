@@ -8,8 +8,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.entity.LovData;
+import com.project.app.farmhub.error.ConstraintValidationException;
+import com.project.app.farmhub.error.ErrorMessageConstant;
 import com.project.app.farmhub.helper.SecurityHelper;
-import com.project.app.farmhub.repository.LovDataRepository;
+import com.project.app.farmhub.repository.LovDataRepositoryImpl;
 import com.project.app.farmhub.request.CreateLovDataRequest;
 import com.project.app.farmhub.request.UpdateLovDataRequest;
 import com.project.app.farmhub.response.LovDataResponse;
@@ -22,7 +24,7 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class LovDataServiceImpl implements LovDataService {
 
-	private final LovDataRepository repository;
+	private final LovDataRepositoryImpl repository;
 
 	@Transactional
 	@Override
@@ -30,7 +32,7 @@ public class LovDataServiceImpl implements LovDataService {
 		validateRole("add");
 		validateBkNotExist(request.getLovType(), request.getCode());
 		LovData entity = mapToEntity(request);
-		repository.saveAndFlush(entity);
+		repository.save(entity);
 
 	}
 
@@ -49,7 +51,7 @@ public class LovDataServiceImpl implements LovDataService {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "lov is exist.");
 		}
 	}
-	
+
 	private void validateRole(String action) {
 		if (!SecurityHelper.hasRole("ADMIN")) {
 			throw new IllegalArgumentException("Only users with role ADMIN can " + action + " lov data.");
@@ -61,18 +63,14 @@ public class LovDataServiceImpl implements LovDataService {
 	@Override
 	public void edit(UpdateLovDataRequest request) {
 		validateRole("edit");
-		validateIdExist(request.getId());
-		LovData lov = getEntityById(request.getId()).orElse(null);
-		validateBkNotChange(lov, request.getLovType(), request.getCode());
-		lov = mapToEntity(lov, request);
-		repository.saveAndFlush(lov);
+		getEntityById(request.getId()).ifPresentOrElse(entity -> {
+			validateBkNotChange(entity, request.getLovType(), request.getCode());
+			mapToEntity(entity, request);
+			repository.save(entity);
+		}, () -> {
+			throw new ConstraintValidationException("lov", ErrorMessageConstant.IS_NOT_EXISTS);
+		});
 
-	}
-
-	public void validateIdExist(String id) {
-		if (!repository.existsById(id)) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "lov is not exist.");
-		}
 	}
 
 	public LovData mapToEntity(LovData lov, UpdateLovDataRequest request) {
@@ -95,17 +93,21 @@ public class LovDataServiceImpl implements LovDataService {
 		}
 	}
 
+	@Transactional
 	@Override
 	public void delete(String id) {
 		validateRole("delete");
-		validateIdExist(id);
-		repository.deleteById(id);
+		getEntityById(id).ifPresentOrElse(entity -> {
+			repository.delete(entity);
+		}, () -> {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id is not exist");
+		});
 
 	}
 
 	@Override
 	public Optional<LovData> getEntityById(String id) {
-		return repository.findById(id);
+		return repository.findById(id, LovData.class);
 	}
 
 	@Override
@@ -116,7 +118,7 @@ public class LovDataServiceImpl implements LovDataService {
 
 	@Override
 	public List<LovDataResponse> getAll() {
-		List<LovData> detail = repository.findAll();
+		List<LovData> detail = repository.findAll(LovData.class);
 		return detail.stream().map(this::mapToResponse).toList();
 	}
 

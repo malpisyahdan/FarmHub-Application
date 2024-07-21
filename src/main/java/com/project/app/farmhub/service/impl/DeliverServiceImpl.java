@@ -35,7 +35,7 @@ public class DeliverServiceImpl implements DeliverService{
 		order.setStatus(StatusOrder.DELIVERED);
 		orderService.changeStatus(order);
 
-		Shipment shipment = shipmentService.getEntityByOrderId(request.getId())
+		Shipment shipment = shipmentService.getEntityByOrderId("order_id",request.getId(), Shipment.class)
 				.orElseThrow(() -> new IllegalArgumentException("Order not found with id: " + request.getId()));
 
 		shipment.setStatusShipment(StatusShipment.DELIVERED);

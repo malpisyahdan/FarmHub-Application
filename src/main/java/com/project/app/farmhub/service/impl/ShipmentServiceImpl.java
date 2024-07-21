@@ -13,7 +13,7 @@ import com.project.app.farmhub.entity.LovData;
 import com.project.app.farmhub.entity.Order;
 import com.project.app.farmhub.entity.Shipment;
 import com.project.app.farmhub.error.ErrorMessageConstant;
-import com.project.app.farmhub.repository.ShipmentRepository;
+import com.project.app.farmhub.repository.MasterRepository;
 import com.project.app.farmhub.request.CreateShipmentRequest;
 import com.project.app.farmhub.response.ShipmentResponse;
 import com.project.app.farmhub.service.LovDataService;
@@ -27,7 +27,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ShipmentServiceImpl implements ShipmentService {
 
-	private final ShipmentRepository repository;
+	private final MasterRepository<Shipment, String> repository;
 	private final OrderService orderService;
 	private final LovDataService lovService;
 
@@ -39,7 +39,7 @@ public class ShipmentServiceImpl implements ShipmentService {
 		validateNonBk(request);
 		Shipment entity = new Shipment();
 		mapToEntity(entity, request);
-		repository.saveAndFlush(entity);
+		repository.save(entity);
 
 	}
 
@@ -59,9 +59,9 @@ public class ShipmentServiceImpl implements ShipmentService {
 		entity.setOrder(order);
 		String trackingNumber = generateTrackingNumber();
 		entity.setTrackingNumber(trackingNumber);
-		LovData lov = lovService.getEntityById(request.getLovCourierServiceId())
-				.orElseThrow(() -> new IllegalArgumentException("lov not found with id: " + request.getLovCourierServiceId()));
-		entity.setLovStatusShipment(lov);
+		LovData lov = lovService.getEntityById(request.getLovCourierServiceId()).orElseThrow(
+				() -> new IllegalArgumentException("lov not found with id: " + request.getLovCourierServiceId()));
+		entity.setLovCourierService(lov);
 		entity.setStatusShipment(StatusShipment.SHIPPED);
 
 		order.setStatus(StatusOrder.SHIPPED);
@@ -70,9 +70,12 @@ public class ShipmentServiceImpl implements ShipmentService {
 
 	}
 
+	@Transactional
 	@Override
 	public void delete(String id) {
-		repository.findById(id).ifPresentOrElse(entity -> repository.deleteById(id), () -> {
+		getEntityById(id).ifPresentOrElse(entity -> {
+			repository.delete(entity);
+		}, () -> {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id is not exist");
 		});
 
@@ -80,7 +83,7 @@ public class ShipmentServiceImpl implements ShipmentService {
 
 	@Override
 	public Optional<Shipment> getEntityById(String id) {
-		return repository.findById(id);
+		return repository.findById(id, Shipment.class);
 	}
 
 	@Override
@@ -92,7 +95,7 @@ public class ShipmentServiceImpl implements ShipmentService {
 
 	@Override
 	public List<ShipmentResponse> getAll() {
-		List<Shipment> detail = repository.findAll();
+		List<Shipment> detail = repository.findAll(Shipment.class);
 		return detail.stream().map(this::mapToResponse).toList();
 	}
 
@@ -101,7 +104,7 @@ public class ShipmentServiceImpl implements ShipmentService {
 		response.setId(entity.getId());
 		response.setOrderId(entity.getOrder().getId());
 		response.setTrackingNumber(entity.getTrackingNumber());
-		response.setCourierService(entity.getLovStatusShipment().getName());
+		response.setCourierService(entity.getLovCourierService().getName());
 		response.setStatusShipment(entity.getStatusShipment().getStatusString());
 		response.setCreatedAt(entity.getCreatedAt());
 		response.setUpdatedAt(entity.getUpdatedAt());
@@ -110,7 +113,7 @@ public class ShipmentServiceImpl implements ShipmentService {
 	}
 
 	private String generateTrackingNumber() {
-	    return "SHIP" + (int) (Math.random() * 100000);
+		return "SHIP" + (int) (Math.random() * 100000);
 	}
 
 	@Override
@@ -119,8 +122,8 @@ public class ShipmentServiceImpl implements ShipmentService {
 	}
 
 	@Override
-	public Optional<Shipment> getEntityByOrderId(String orderId) {
-		return repository.findByOrderId(orderId);
+	public Optional<Shipment> getEntityByOrderId(String fieldName, Object value, Class<Shipment> entityType) {
+		return repository.findByField(fieldName, value, entityType);
 	}
 
 }

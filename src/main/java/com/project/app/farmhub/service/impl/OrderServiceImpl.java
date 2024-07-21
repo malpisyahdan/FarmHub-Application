@@ -17,7 +17,7 @@ import com.project.app.farmhub.entity.Product;
 import com.project.app.farmhub.error.ConstraintValidationException;
 import com.project.app.farmhub.error.ErrorMessageConstant;
 import com.project.app.farmhub.helper.SecurityHelper;
-import com.project.app.farmhub.repository.OrderRepository;
+import com.project.app.farmhub.repository.MasterRepository;
 import com.project.app.farmhub.request.CancelOrderRequest;
 import com.project.app.farmhub.request.CreateOrderRequest;
 import com.project.app.farmhub.response.OrderResponse;
@@ -32,7 +32,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
-	private final OrderRepository repository;
+	private final MasterRepository<Order, String> repository;
 	private final UserDetailsServiceImp userService;
 	private final ProductService productService;
 
@@ -50,7 +50,7 @@ public class OrderServiceImpl implements OrderService {
 		}
 		entity.setUmkm(userService.getEntityById(currentUserId).orElse(null));
 		mapToEntity(entity, request);
-		repository.saveAndFlush(entity);
+		repository.save(entity);
 
 	}
 
@@ -106,7 +106,9 @@ public class OrderServiceImpl implements OrderService {
 
 	@Override
 	public void delete(String id) {
-		repository.findById(id).ifPresentOrElse(entity -> repository.deleteById(id), () -> {
+		getEntityById(id).ifPresentOrElse(entity -> {
+			repository.delete(entity);
+		}, () -> {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id is not exist");
 		});
 
@@ -114,7 +116,7 @@ public class OrderServiceImpl implements OrderService {
 
 	@Override
 	public Optional<Order> getEntityById(String id) {
-		return repository.findById(id);
+		return repository.findById(id, Order.class);
 	}
 
 	@Override
@@ -126,7 +128,7 @@ public class OrderServiceImpl implements OrderService {
 
 	@Override
 	public List<OrderResponse> getAll() {
-		List<Order> detail = repository.findAll();
+		List<Order> detail = repository.findAll(Order.class);
 		return detail.stream().map(this::mapToResponse).toList();
 	}
 

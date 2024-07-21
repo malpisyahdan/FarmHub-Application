@@ -1,11 +1,10 @@
 package com.project.app.farmhub.service;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,10 +15,10 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockitoAnnotations;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.common.type.StatusOrder;
@@ -27,35 +26,124 @@ import com.project.app.farmhub.common.type.StatusShipment;
 import com.project.app.farmhub.entity.LovData;
 import com.project.app.farmhub.entity.Order;
 import com.project.app.farmhub.entity.Shipment;
-import com.project.app.farmhub.repository.ShipmentRepository;
+import com.project.app.farmhub.repository.MasterRepository;
 import com.project.app.farmhub.request.CreateShipmentRequest;
 import com.project.app.farmhub.response.ShipmentResponse;
 import com.project.app.farmhub.service.impl.ShipmentServiceImpl;
 
-@ExtendWith(MockitoExtension.class)
 class ShipmentServiceTest {
 
 	@Mock
-	private ShipmentRepository shipmentRepository;
+	private MasterRepository<Shipment, String> repository;
 
 	@Mock
 	private OrderService orderService;
-	
+
 	@Mock
 	private LovDataService lovService;
 
 	@InjectMocks
 	private ShipmentServiceImpl shipmentService;
 
-	private Shipment shipment;
-	private CreateShipmentRequest createShipmentRequest;
-
 	@BeforeEach
-	public void setUp() {
+	void setUp() {
+		MockitoAnnotations.openMocks(this);
+	}
+
+	@Test
+	void addShipment() {
+		CreateShipmentRequest request = new CreateShipmentRequest();
+		request.setOrderId("orderId");
+		request.setLovCourierServiceId("lovCourierServiceId");
+
+		Order order = new Order();
+		LovData lovData = new LovData();
+
+		when(orderService.getEntityById("orderId")).thenReturn(Optional.of(order));
+		when(lovService.getEntityById("lovCourierServiceId")).thenReturn(Optional.of(lovData));
+
+		assertDoesNotThrow(() -> shipmentService.add(request));
+		verify(repository, times(1)).save(any(Shipment.class));
+		verify(orderService, times(1)).changeStatusPayment(any(Order.class));
+	}
+
+	@Test
+	void addShipmentOrderNotExists() {
+		CreateShipmentRequest request = new CreateShipmentRequest();
+		request.setOrderId("invalidOrderId");
+		request.setLovCourierServiceId("lovCourierServiceId");
+
+		when(orderService.getEntityById("invalidOrderId")).thenReturn(Optional.empty());
+
+		Exception exception = assertThrows(ResponseStatusException.class, () -> {
+			shipmentService.add(request);
+		});
+
+		assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) exception).getStatusCode());
+	}
+
+	@Test
+	void deleteShipment() {
+		String shipmentId = "shipmentId";
+		Shipment shipment = new Shipment();
+
+		when(repository.findById(shipmentId, Shipment.class)).thenReturn(Optional.of(shipment));
+
+		assertDoesNotThrow(() -> shipmentService.delete(shipmentId));
+		verify(repository, times(1)).delete(shipment);
+	}
+
+	@Test
+	void deleteShipmentNotExists() {
+		String shipmentId = "invalidShipmentId";
+
+		when(repository.findById(shipmentId, Shipment.class)).thenReturn(Optional.empty());
+
+		Exception exception = assertThrows(ResponseStatusException.class, () -> {
+			shipmentService.delete(shipmentId);
+		});
+
+		assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) exception).getStatusCode());
+	}
+
+	@Test
+	void getById() {
+		String shipmentId = "shipmentId";
+		Shipment shipment = new Shipment();
+		shipment.setId(shipmentId);
+		shipment.setOrder(new Order());
+		shipment.setLovCourierService(new LovData());
+		shipment.setStatusShipment(StatusShipment.SHIPPED);
+
+		when(repository.findById(shipmentId, Shipment.class)).thenReturn(Optional.of(shipment));
+
+		ShipmentResponse response = shipmentService.getById(shipmentId);
+
+		assertNotNull(response);
+		assertEquals(shipmentId, response.getId());
+	}
+
+	@Test
+	void getByIdShipmentNotExists() {
+		String shipmentId = "invalidShipmentId";
+
+		when(repository.findById(shipmentId, Shipment.class)).thenReturn(Optional.empty());
+
+		Exception exception = assertThrows(ResponseStatusException.class, () -> {
+			shipmentService.getById(shipmentId);
+		});
+
+		assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) exception).getStatusCode());
+	}
+
+	@Test
+	void getAllShipments() {
+
+		Shipment shipment = new Shipment();
 		Order order = new Order();
 		order.setId("order123");
 		order.setStatus(StatusOrder.PENDING);
-		
+
 		LovData lov = new LovData();
 		lov.setId("lov3");
 		lov.setCode("JNE");
@@ -66,101 +154,12 @@ class ShipmentServiceTest {
 		shipment.setId("shipment123");
 		shipment.setOrder(order);
 		shipment.setTrackingNumber("SHIP12345");
-		shipment.setLovStatusShipment(lov);
+		shipment.setLovCourierService(lov);
 		shipment.setStatusShipment(StatusShipment.SHIPPED);
 
-		createShipmentRequest = new CreateShipmentRequest();
-		createShipmentRequest.setOrderId("order123");
-		createShipmentRequest.setLovCourierServiceId("lov3");
-	}
-
-	@Test
-	void testAddShipment() {
-		when(orderService.getEntityById(anyString())).thenReturn(Optional.of(shipment.getOrder()));
-		when(lovService.getEntityById(anyString())).thenReturn(Optional.of(shipment.getLovStatusShipment()));
-
-		when(shipmentRepository.saveAndFlush(any(Shipment.class))).thenReturn(shipment);
-
-		shipmentService.add(createShipmentRequest);
-
-		verify(shipmentRepository, times(1)).saveAndFlush(any(Shipment.class));
-	}
-
-	@Test
-	void testAddShipmentOrderNotFound() {
-		when(orderService.getEntityById(anyString())).thenReturn(Optional.empty());
-
-		assertThrows(ResponseStatusException.class, () -> {
-			shipmentService.add(createShipmentRequest);
-		});
-	}
-
-	@Test
-	void testDeleteShipment() {
-		when(shipmentRepository.findById(anyString())).thenReturn(Optional.of(shipment));
-
-		shipmentService.delete("shipment123");
-
-		verify(shipmentRepository, times(1)).deleteById("shipment123");
-	}
-
-	@Test
-	void testDeleteShipmentNotFound() {
-		when(shipmentRepository.findById(anyString())).thenReturn(Optional.empty());
-
-		assertThrows(ResponseStatusException.class, () -> {
-			shipmentService.delete("shipment123");
-		});
-	}
-
-	@Test
-	void testGetEntityById() {
-		when(shipmentRepository.findById(anyString())).thenReturn(Optional.of(shipment));
-
-		Optional<Shipment> result = shipmentService.getEntityById("shipment123");
-
-		assertTrue(result.isPresent());
-		assertEquals(shipment.getId(), result.get().getId());
-		assertEquals(shipment.getOrder().getId(), result.get().getOrder().getId());
-	}
-
-	@Test
-	void testGetEntityByIdNotFound() {
-		when(shipmentRepository.findById(anyString())).thenReturn(Optional.empty());
-
-		Optional<Shipment> result = shipmentService.getEntityById("shipment123");
-
-		assertTrue(result.isEmpty());
-	}
-
-	@Test
-	void testGetById() {
-		when(shipmentRepository.findById(anyString())).thenReturn(Optional.of(shipment));
-
-		ShipmentResponse response = shipmentService.getById("shipment123");
-
-		assertNotNull(response);
-		assertEquals("shipment123", response.getId());
-		assertEquals("order123", response.getOrderId());
-		assertEquals("SHIP12345", response.getTrackingNumber());
-		assertEquals("JNE", response.getCourierService());
-		assertEquals("SHIPPED", response.getStatusShipment());
-	}
-
-	@Test
-	void testGetByIdNotFound() {
-		when(shipmentRepository.findById(anyString())).thenReturn(Optional.empty());
-
-		assertThrows(ResponseStatusException.class, () -> {
-			shipmentService.getById("shipment123");
-		});
-	}
-
-	@Test
-	void testGetAllShipments() {
 		List<Shipment> shipments = new ArrayList<>();
 		shipments.add(shipment);
-		when(shipmentRepository.findAll()).thenReturn(shipments);
+		when(repository.findAll(Shipment.class)).thenReturn(shipments);
 
 		List<ShipmentResponse> responses = shipmentService.getAll();
 
@@ -175,4 +174,15 @@ class ShipmentServiceTest {
 		assertEquals("SHIPPED", response.getStatusShipment());
 	}
 
+	@Test
+	void changeStatusShipment() {
+		Shipment shipment = new Shipment();
+		shipment.setStatusShipment(StatusShipment.DELIVERED);
+
+		when(repository.save(any(Shipment.class))).thenReturn(shipment);
+
+		Shipment updatedShipment = shipmentService.changeStatusShipment(shipment);
+
+		assertEquals(StatusShipment.DELIVERED, updatedShipment.getStatusShipment());
+	}
 }

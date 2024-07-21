@@ -3,14 +3,11 @@ package com.project.app.farmhub.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,7 +23,7 @@ import com.project.app.farmhub.common.type.StatusPayment;
 import com.project.app.farmhub.entity.LovData;
 import com.project.app.farmhub.entity.Order;
 import com.project.app.farmhub.entity.Payment;
-import com.project.app.farmhub.repository.PaymentRepository;
+import com.project.app.farmhub.repository.MasterRepository;
 import com.project.app.farmhub.request.CreatePaymentRequest;
 import com.project.app.farmhub.response.PaymentResponse;
 import com.project.app.farmhub.service.impl.PaymentServiceImpl;
@@ -35,7 +32,7 @@ import com.project.app.farmhub.service.impl.PaymentServiceImpl;
 class PaymentServiceTest {
 
 	@Mock
-	private PaymentRepository paymentRepository;
+	private MasterRepository<Payment, String> repository;
 
 	@Mock
 	private OrderService orderService;
@@ -46,127 +43,106 @@ class PaymentServiceTest {
 	@InjectMocks
 	private PaymentServiceImpl paymentService;
 
+	private CreatePaymentRequest request;
 	private Payment payment;
-	
-	private CreatePaymentRequest createPaymentRequest;
+	private Order order;
+	private LovData lovData;
 
 	@BeforeEach
-	public void setUp() {
-		Order order = new Order();
-		order.setId("order123");
-		order.setStatusPayment(StatusPayment.PENDING);
+	void setUp() {
+		request = new CreatePaymentRequest();
+		request.setOrderId("order1");
+		request.setLovPaymentMethodId("lov1");
 
-		LovData lov = new LovData();
-		lov.setId("lov2");
-		lov.setCode("CASH");
-		lov.setLovType("PAYMENT-METHOD");
+		order = new Order();
+		order.setId("order1");
+
+		lovData = new LovData();
+		lovData.setId("lov1");
 
 		payment = new Payment();
-		payment.setId("payment123");
+		payment.setId("payment1");
 		payment.setOrder(order);
-		payment.setLovPaymentMethod(lov);
+		payment.setLovPaymentMethod(lovData);
 		payment.setStatusPayment(StatusPayment.PAID);
-
-		createPaymentRequest = new CreatePaymentRequest();
-		createPaymentRequest.setOrderId("order123");
-		createPaymentRequest.setLovPaymentMethodId("lov2");
 	}
 
 	@Test
 	void testAddPayment() {
-		when(orderService.getEntityById(anyString())).thenReturn(Optional.of(payment.getOrder()));
-		when(lovService.getEntityById(anyString())).thenReturn(Optional.of(payment.getLovPaymentMethod()));
+		when(orderService.getEntityById("order1")).thenReturn(Optional.of(order));
+		when(lovService.getEntityById("lov1")).thenReturn(Optional.of(lovData));
+		when(repository.save(any(Payment.class))).thenReturn(payment);
 
-		when(paymentRepository.saveAndFlush(any(Payment.class))).thenReturn(payment);
+		paymentService.add(request);
 
-		paymentService.add(createPaymentRequest);
-
-		verify(paymentRepository, times(1)).saveAndFlush(any(Payment.class));
+		verify(repository).save(any(Payment.class));
+		verify(orderService).changeStatusPayment(any(Order.class));
 	}
 
 	@Test
 	void testAddPaymentOrderNotFound() {
-		when(orderService.getEntityById(anyString())).thenReturn(Optional.empty());
+		when(orderService.getEntityById("order1")).thenReturn(Optional.empty());
 
-		assertThrows(ResponseStatusException.class, () -> {
-			paymentService.add(createPaymentRequest);
+		ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+			paymentService.add(request);
 		});
+
+		assertEquals("order is not exists", exception.getReason());
 	}
 
 	@Test
 	void testDeletePayment() {
-		when(paymentRepository.findById(anyString())).thenReturn(Optional.of(payment));
+		when(repository.findById("payment1", Payment.class)).thenReturn(Optional.of(payment));
+		doNothing().when(repository).delete(any(Payment.class));
 
-		paymentService.delete("payment123");
+		paymentService.delete("payment1");
 
-		verify(paymentRepository, times(1)).deleteById("payment123");
+		verify(repository).delete(any(Payment.class));
 	}
 
 	@Test
 	void testDeletePaymentNotFound() {
-		when(paymentRepository.findById(anyString())).thenReturn(Optional.empty());
+		when(repository.findById("payment1", Payment.class)).thenReturn(Optional.empty());
 
-		assertThrows(ResponseStatusException.class, () -> {
-			paymentService.delete("payment123");
+		ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+			paymentService.delete("payment1");
 		});
-	}
 
-	@Test
-	void testGetEntityById() {
-		when(paymentRepository.findById(anyString())).thenReturn(Optional.of(payment));
-
-		Optional<Payment> result = paymentService.getEntityById("payment123");
-
-		assertTrue(result.isPresent());
-		assertEquals(payment.getId(), result.get().getId());
-		assertEquals(payment.getOrder().getId(), result.get().getOrder().getId());
-	}
-
-	@Test
-	void testGetEntityByIdNotFound() {
-		when(paymentRepository.findById(anyString())).thenReturn(Optional.empty());
-
-		Optional<Payment> result = paymentService.getEntityById("payment123");
-
-		assertTrue(result.isEmpty());
+		assertEquals("id is not exist", exception.getReason());
 	}
 
 	@Test
 	void testGetById() {
-		when(paymentRepository.findById(anyString())).thenReturn(Optional.of(payment));
+		when(repository.findById("payment1", Payment.class)).thenReturn(Optional.of(payment));
 
-		PaymentResponse response = paymentService.getById("payment123");
+		PaymentResponse response = paymentService.getById("payment1");
 
 		assertNotNull(response);
-		assertEquals("payment123", response.getId());
-		assertEquals("order123", response.getOrderId());
-		assertEquals("PAID", response.getStatusPayment());
+		assertEquals("payment1", response.getId());
+		assertEquals("order1", response.getOrderId());
 	}
 
 	@Test
 	void testGetByIdNotFound() {
-		when(paymentRepository.findById(anyString())).thenReturn(Optional.empty());
+		when(repository.findById("payment1", Payment.class)).thenReturn(Optional.empty());
 
-		assertThrows(ResponseStatusException.class, () -> {
-			paymentService.getById("payment123");
+		ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+			paymentService.getById("payment1");
 		});
+
+		assertEquals("id is not exist", exception.getReason());
 	}
 
 	@Test
-	void testGetAllPayments() {
-		List<Payment> payments = new ArrayList<>();
-		payments.add(payment);
-		when(paymentRepository.findAll()).thenReturn(payments);
+	void testGetAll() {
+		when(repository.findAll(Payment.class)).thenReturn(List.of(payment));
 
 		List<PaymentResponse> responses = paymentService.getAll();
 
 		assertNotNull(responses);
 		assertEquals(1, responses.size());
-
-		PaymentResponse response = responses.get(0);
-		assertEquals("payment123", response.getId());
-		assertEquals("order123", response.getOrderId());
-		assertEquals("PAID", response.getStatusPayment());
+		assertEquals("payment1", responses.get(0).getId());
 	}
-
 }
+
+

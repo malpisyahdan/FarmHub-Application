@@ -21,6 +21,6 @@ public interface ShipmentService {
 
 	Shipment changeStatusShipment(Shipment shipment);
 	
-	Optional<Shipment> getEntityByOrderId(String orderId);
+	Optional<Shipment> getEntityByOrderId(String fieldName, Object value, Class<Shipment> entityType);
 
 }

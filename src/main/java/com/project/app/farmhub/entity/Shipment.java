@@ -31,8 +31,8 @@ public class Shipment extends MasterEntity {
 	private Order order;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "lov_status_shipment_id")
-	private LovData lovStatusShipment;
+	@JoinColumn(name = "lov_courier_service_id")
+	private LovData lovCourierService;
 
 	@Enumerated(value = EnumType.STRING)
 	private StatusShipment statusShipment;

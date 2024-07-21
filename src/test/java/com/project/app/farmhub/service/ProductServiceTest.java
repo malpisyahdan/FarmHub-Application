@@ -25,7 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.project.app.farmhub.entity.Product;
 import com.project.app.farmhub.entity.User;
 import com.project.app.farmhub.helper.SecurityHelper;
-import com.project.app.farmhub.repository.ProductRepository;
+import com.project.app.farmhub.repository.MasterRepository;
 import com.project.app.farmhub.request.CreateProductRequest;
 import com.project.app.farmhub.request.UpdateProductRequest;
 import com.project.app.farmhub.response.ProductResponse;
@@ -36,7 +36,7 @@ import jakarta.validation.ValidationException;
 class ProductServiceTest {
 
 	@Mock
-	private ProductRepository repository;
+	private MasterRepository<Product, String> repository;
 
 	@Mock
 	private UserDetailsServiceImp userService;
@@ -67,11 +67,11 @@ class ProductServiceTest {
 
 			when(userService.getEntityById("1")).thenReturn(Optional.of(currentUser));
 			when(SecurityHelper.hasRole("FARMER")).thenReturn(true);
-			when(repository.existsByCode("TIMUN")).thenReturn(false);
+			when(repository.countByField("code", "TIMUN", Product.class)).thenReturn(0L);
 
 			productService.add(request);
 
-			verify(repository, times(1)).saveAndFlush(any(Product.class));
+			verify(repository, times(1)).save(any(Product.class));
 		}
 	}
 
@@ -100,7 +100,7 @@ class ProductServiceTest {
 			mockedStatic.when(SecurityHelper::getCurrentUserId).thenReturn("1");
 
 			when(SecurityHelper.hasRole("FARMER")).thenReturn(true);
-			when(repository.existsByCode("TIMUN")).thenReturn(true);
+			when(repository.countByField("code", "TIMUN", Product.class)).thenReturn(1L);
 
 			ValidationException exception = assertThrows(ValidationException.class, () -> {
 				productService.add(request);
@@ -124,13 +124,15 @@ class ProductServiceTest {
 		existingProduct.setId("1");
 		existingProduct.setCode("TIMUN");
 
-		when(repository.findById("1")).thenReturn(Optional.of(existingProduct));
-		mockStatic(SecurityHelper.class);
-		when(SecurityHelper.hasRole("FARMER")).thenReturn(true);
+		when(repository.findById("1", Product.class)).thenReturn(Optional.of(existingProduct));
 
-		productService.edit(request);
+		try (MockedStatic<SecurityHelper> mockedStatic = mockStatic(SecurityHelper.class)) {
+			mockedStatic.when(() -> SecurityHelper.hasRole("FARMER")).thenReturn(true);
 
-		verify(repository, times(1)).saveAndFlush(any(Product.class));
+			productService.edit(request);
+
+			verify(repository, times(1)).save(any(Product.class));
+		}
 	}
 
 	@Test
@@ -143,7 +145,7 @@ class ProductServiceTest {
 		existingProduct.setId("1");
 		existingProduct.setCode("TOMAT");
 
-		when(repository.findById("1")).thenReturn(Optional.of(existingProduct));
+		when(repository.findById("1", Product.class)).thenReturn(Optional.of(existingProduct));
 
 		try (MockedStatic<SecurityHelper> mockedSecurityHelper = Mockito.mockStatic(SecurityHelper.class)) {
 			mockedSecurityHelper.when(() -> SecurityHelper.hasRole("FARMER")).thenReturn(true);
@@ -162,18 +164,22 @@ class ProductServiceTest {
 		Product existingProduct = new Product();
 		existingProduct.setId("1");
 
-		when(repository.findById(productId)).thenReturn(Optional.of(existingProduct));
+		when(repository.findById(productId, Product.class)).thenReturn(Optional.of(existingProduct));
 
-		productService.delete(productId);
+		try (MockedStatic<SecurityHelper> mockedStatic = mockStatic(SecurityHelper.class)) {
+			mockedStatic.when(() -> SecurityHelper.hasRole("FARMER")).thenReturn(true);
 
-		verify(repository, times(1)).deleteById(productId);
+			productService.delete(productId);
+
+			verify(repository, times(1)).delete(existingProduct);
+		}
 	}
 
 	@Test
 	void testDeleteNonExistentProduct() {
 		String productId = "1";
 
-		when(repository.findById(productId)).thenReturn(Optional.empty());
+		when(repository.findById(productId, Product.class)).thenReturn(Optional.empty());
 
 		try (MockedStatic<SecurityHelper> mockedSecurityHelper = Mockito.mockStatic(SecurityHelper.class)) {
 			mockedSecurityHelper.when(() -> SecurityHelper.hasRole("FARMER")).thenReturn(true);
@@ -200,7 +206,7 @@ class ProductServiceTest {
 		product.setName("Timun");
 		product.setFarmer(currentUser);
 
-		when(repository.findById(productId)).thenReturn(Optional.of(product));
+		when(repository.findById(productId, Product.class)).thenReturn(Optional.of(product));
 
 		ProductResponse response = productService.getById(productId);
 
@@ -229,7 +235,7 @@ class ProductServiceTest {
 		product2.setName("Wortel");
 		product2.setFarmer(farmer);
 
-		when(repository.findAll()).thenReturn(List.of(product1, product2));
+		when(repository.findAll(Product.class)).thenReturn(List.of(product1, product2));
 
 		List<ProductResponse> responses = productService.getAll();
 

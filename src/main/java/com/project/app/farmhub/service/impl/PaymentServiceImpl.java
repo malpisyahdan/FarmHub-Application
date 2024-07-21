@@ -12,7 +12,7 @@ import com.project.app.farmhub.entity.LovData;
 import com.project.app.farmhub.entity.Order;
 import com.project.app.farmhub.entity.Payment;
 import com.project.app.farmhub.error.ErrorMessageConstant;
-import com.project.app.farmhub.repository.PaymentRepository;
+import com.project.app.farmhub.repository.MasterRepository;
 import com.project.app.farmhub.request.CreatePaymentRequest;
 import com.project.app.farmhub.response.PaymentResponse;
 import com.project.app.farmhub.service.LovDataService;
@@ -26,7 +26,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class PaymentServiceImpl implements PaymentService {
 
-	private final PaymentRepository repository;
+	private final MasterRepository<Payment, String> repository;
 	private final OrderService orderService;
 	private final LovDataService lovService;
 
@@ -38,7 +38,7 @@ public class PaymentServiceImpl implements PaymentService {
 		validateNonBk(request);
 		Payment entity = new Payment();
 		mapToEntity(entity, request);
-		repository.saveAndFlush(entity);
+		repository.save(entity);
 
 	}
 
@@ -67,9 +67,14 @@ public class PaymentServiceImpl implements PaymentService {
 
 	}
 
+	@Transactional
 	@Override
 	public void delete(String id) {
-		repository.findById(id).ifPresentOrElse(entity -> repository.deleteById(id), () -> {
+		
+		
+		getEntityById(id).ifPresentOrElse(entity -> {
+			repository.delete(entity);
+		}, () -> {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id is not exist");
 		});
 
@@ -77,7 +82,7 @@ public class PaymentServiceImpl implements PaymentService {
 
 	@Override
 	public Optional<Payment> getEntityById(String id) {
-		return repository.findById(id);
+		return repository.findById(id, Payment.class);
 	}
 
 	@Override
@@ -89,7 +94,7 @@ public class PaymentServiceImpl implements PaymentService {
 
 	@Override
 	public List<PaymentResponse> getAll() {
-		List<Payment> detail = repository.findAll();
+		List<Payment> detail = repository.findAll(Payment.class);
 		return detail.stream().map(this::mapToResponse).toList();
 	}
 

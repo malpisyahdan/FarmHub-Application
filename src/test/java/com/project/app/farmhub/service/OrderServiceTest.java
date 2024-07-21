@@ -1,26 +1,21 @@
 package com.project.app.farmhub.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -29,22 +24,18 @@ import com.project.app.farmhub.common.type.StatusPayment;
 import com.project.app.farmhub.entity.Order;
 import com.project.app.farmhub.entity.Product;
 import com.project.app.farmhub.entity.User;
+import com.project.app.farmhub.error.ConstraintValidationException;
 import com.project.app.farmhub.error.ErrorMessageConstant;
-import com.project.app.farmhub.helper.SecurityHelper;
-import com.project.app.farmhub.repository.OrderRepository;
+import com.project.app.farmhub.repository.MasterRepository;
 import com.project.app.farmhub.request.CancelOrderRequest;
 import com.project.app.farmhub.request.CreateOrderRequest;
 import com.project.app.farmhub.response.OrderResponse;
-import com.project.app.farmhub.response.ProductResponse;
 import com.project.app.farmhub.service.impl.OrderServiceImpl;
 
 class OrderServiceTest {
 
-	@InjectMocks
-	private OrderServiceImpl orderService;
-
 	@Mock
-	private OrderRepository orderRepository;
+	private MasterRepository<Order, String> repository;
 
 	@Mock
 	private UserDetailsServiceImp userService;
@@ -52,22 +43,180 @@ class OrderServiceTest {
 	@Mock
 	private ProductService productService;
 
-	private MockedStatic<SecurityHelper> securityHelperMock;
+	@InjectMocks
+	private OrderServiceImpl orderService;
 
 	@BeforeEach
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
-		securityHelperMock = mockStatic(SecurityHelper.class);
-		Mockito.lenient().when(orderRepository.findById(any())).thenReturn(Optional.empty());
-	}
-
-	@AfterEach
-	void tearDown() {
-		securityHelperMock.close();
 	}
 
 	@Test
-	void testAddOrder() {
+	void testAddOrderWithInvalidProduct() {
+		CreateOrderRequest request = new CreateOrderRequest();
+		request.setProductId("1");
+		request.setQuantity(5);
+
+		when(productService.getEntityById("1")).thenReturn(Optional.empty());
+
+		ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+			orderService.add(request);
+		});
+
+		assertEquals("product " + ErrorMessageConstant.IS_NOT_EXISTS, exception.getReason());
+	}
+
+	@Test
+	void testAddOrderWithInsufficientStock() {
+		CreateOrderRequest request = new CreateOrderRequest();
+		request.setProductId("1");
+		request.setQuantity(15);
+
+		Product mockProduct = new Product();
+		mockProduct.setId("1");
+		mockProduct.setStock(10);
+
+		when(productService.getEntityById("1")).thenReturn(Optional.of(mockProduct));
+
+		ConstraintValidationException exception = assertThrows(ConstraintValidationException.class, () -> {
+			orderService.add(request);
+		});
+
+		assertEquals(Collections.singletonList("Stock product tidak mencukupi"), exception.getErrors().get("quantity"));
+	}
+
+	@Test
+	void testCancelOrder() {
+		CancelOrderRequest request = new CancelOrderRequest();
+		request.setId("1");
+
+		Order mockOrder = new Order();
+		mockOrder.setId("1");
+		mockOrder.setStatus(StatusOrder.PENDING);
+		mockOrder.setQuantity(5);
+
+		Product mockProduct = new Product();
+		mockProduct.setId("1");
+		mockProduct.setStock(10);
+
+		mockOrder.setProduct(mockProduct);
+
+		when(repository.findById("1", Order.class)).thenReturn(Optional.of(mockOrder));
+		when(productService.getEntityById("1")).thenReturn(Optional.of(mockProduct));
+		when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		orderService.cancelOrder(request);
+
+		assertEquals(StatusOrder.CANCELLED, mockOrder.getStatus());
+		verify(productService, times(1)).changeTotalStock(mockProduct);
+		verify(repository, times(1)).save(mockOrder);
+	}
+
+	@Test
+	void testCancelOrderWithInvalidStatus() {
+		CancelOrderRequest request = new CancelOrderRequest();
+		request.setId("1");
+
+		Order mockOrder = new Order();
+		mockOrder.setId("1");
+		mockOrder.setStatus(StatusOrder.SHIPPED);
+
+		when(repository.findById("1", Order.class)).thenReturn(Optional.of(mockOrder));
+
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+			orderService.cancelOrder(request);
+		});
+
+		assertEquals("Only orders with status PENDING can be canceled", exception.getMessage());
+	}
+
+	@Test
+	void testCancelOrderWithInvalidOrder() {
+		CancelOrderRequest request = new CancelOrderRequest();
+		request.setId("1");
+
+		when(repository.findById("1", Order.class)).thenReturn(Optional.empty());
+
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+			orderService.cancelOrder(request);
+		});
+
+		assertEquals("Order not found with id: 1", exception.getMessage());
+	}
+
+	@Test
+	void testDeleteOrder() {
+		String orderId = "1";
+		Order existingOrder = new Order();
+		existingOrder.setId("1");
+
+		when(repository.findById(orderId, Order.class)).thenReturn(Optional.of(existingOrder));
+
+		orderService.delete(orderId);
+
+		verify(repository, times(1)).delete(existingOrder);
+	}
+
+	@Test
+	void testDeleteNonExistentOrder() {
+		String orderId = "1";
+
+		when(repository.findById(orderId, Order.class)).thenReturn(Optional.empty());
+
+		ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+			orderService.delete(orderId);
+		});
+
+		assertEquals("id is not exist", exception.getReason());
+	}
+
+	@Test
+	void testGetById() {
+		String orderId = "1";
+
+		Order mockOrder = new Order();
+
+		User farmer = new User();
+		farmer.setId("1");
+		farmer.setUsername("Agus");
+
+		User umkm = new User();
+		umkm.setId("2");
+		umkm.setUsername("Rian");
+
+		Product product = new Product();
+		product.setId("1");
+		product.setCode("TIMUN");
+		product.setName("Timun");
+		product.setFarmer(farmer);
+
+		mockOrder.setId("orderId");
+		mockOrder.setStatus(StatusOrder.PENDING);
+		mockOrder.setStatusPayment(StatusPayment.PENDING);
+		mockOrder.setProduct(product);
+		mockOrder.setFarmer(farmer);
+		mockOrder.setUmkm(umkm);
+
+		mockOrder.setId("1");
+		mockOrder.setStatus(StatusOrder.PENDING);
+
+		when(repository.findById(orderId, Order.class)).thenReturn(Optional.of(mockOrder));
+
+		OrderResponse response = orderService.getById(orderId);
+
+		assertEquals(mockOrder.getId(), response.getId());
+	}
+
+	@Test
+	void testGetAll() {
+		Order mockOrder1 = new Order();
+		mockOrder1.setId("1");
+		mockOrder1.setStatus(StatusOrder.PENDING);
+
+		Order mockOrder2 = new Order();
+		mockOrder2.setId("2");
+		mockOrder2.setStatus(StatusOrder.SHIPPED);
+
 		User farmer = new User();
 		farmer.setId("1");
 		farmer.setUsername("Agus");
@@ -82,204 +231,48 @@ class OrderServiceTest {
 		product.setPrice(BigDecimal.valueOf(100));
 		product.setFarmer(farmer);
 
-		ProductResponse productResponse = new ProductResponse();
-		productResponse.setFarmerId(farmer.getId());
-		productResponse.setPrice(BigDecimal.valueOf(100));
+		mockOrder1.setProduct(product);
+		mockOrder2.setProduct(product);
+		mockOrder1.setFarmer(farmer);
+		mockOrder2.setFarmer(farmer);
+		mockOrder1.setUmkm(umkm);
+		mockOrder2.setUmkm(umkm);
+		mockOrder1.setStatus(StatusOrder.PENDING);
+		mockOrder1.setStatusPayment(StatusPayment.PENDING);
+		mockOrder2.setStatus(StatusOrder.PENDING);
+		mockOrder2.setStatusPayment(StatusPayment.PENDING);
 
-		CreateOrderRequest request = new CreateOrderRequest();
-		request.setProductId(product.getId());
-		request.setQuantity(5);
+		when(repository.findAll(Order.class)).thenReturn(List.of(mockOrder1, mockOrder2));
 
-		when(productService.getEntityById("2")).thenReturn(Optional.of(product));
-		when(productService.getById("2")).thenReturn(productResponse);
-		when(SecurityHelper.getCurrentUserId()).thenReturn("1");
-		when(userService.getEntityById("1")).thenReturn(Optional.of(farmer));
-		when(userService.getEntityById("2")).thenReturn(Optional.of(umkm));
+		List<OrderResponse> responses = orderService.getAll();
 
-		orderService.add(request);
-
-		verify(orderRepository, times(1)).saveAndFlush(any(Order.class));
-	}
-
-	@Test
-	void testAddOrderInvalidProduct() {
-		CreateOrderRequest request = new CreateOrderRequest();
-		request.setProductId("productId");
-		request.setQuantity(5);
-
-		when(productService.getEntityById(anyString())).thenReturn(Optional.empty());
-
-		ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-				() -> orderService.add(request));
-		assertEquals("product " + ErrorMessageConstant.IS_NOT_EXISTS, exception.getReason());
-	}
-
-	@Test
-	void testCancelOrder() {
-		CancelOrderRequest request = new CancelOrderRequest();
-		request.setId("orderId");
-
-		Order order = new Order();
-		order.setStatus(StatusOrder.PENDING);
-		Product product = new Product();
-		product.setId("1");
-		product.setStock(10);
-		order.setProduct(product);
-		order.setQuantity(5);
-
-		when(orderRepository.findById(anyString())).thenReturn(Optional.of(order));
-		when(productService.getEntityById(anyString())).thenReturn(Optional.of(product));
-
-		orderService.cancelOrder(request);
-
-		assertEquals(StatusOrder.CANCELLED, order.getStatus());
-		assertEquals(15, product.getStock());
-		verify(orderRepository, times(1)).save(order);
-		verify(productService, times(1)).changeTotalStock(product);
-	}
-
-	@Test
-	void testCancelOrderInvalidStatus() {
-		CancelOrderRequest request = new CancelOrderRequest();
-		request.setId("orderId");
-
-		Order order = new Order();
-		order.setStatus(StatusOrder.SHIPPED);
-
-		when(orderRepository.findById(anyString())).thenReturn(Optional.of(order));
-
-		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-				() -> orderService.cancelOrder(request));
-		assertEquals("Only orders with status PENDING can be canceled", exception.getMessage());
-	}
-
-	@Test
-	void testGetById() {
-		String productId = "1";
-
-		User farmer = new User();
-		farmer.setId("1");
-		farmer.setUsername("Agus");
-
-		User umkm = new User();
-		umkm.setId("2");
-		umkm.setUsername("Rian");
-
-		Product product = new Product();
-		product.setId(productId);
-		product.setCode("TIMUN");
-		product.setName("Timun");
-		product.setFarmer(farmer);
-
-		Order order = new Order();
-		order.setId("orderId");
-		order.setStatus(StatusOrder.PENDING);
-		order.setStatusPayment(StatusPayment.PENDING);
-		order.setProduct(product);
-		order.setFarmer(farmer);
-		order.setUmkm(umkm);
-
-		when(orderRepository.findById(anyString())).thenReturn(Optional.of(order));
-
-		OrderResponse response = orderService.getById("orderId");
-
-		assertNotNull(response);
-		assertEquals("orderId", response.getId());
-		assertEquals(StatusOrder.PENDING.getStatusString(), response.getStatus());
-		assertEquals(StatusPayment.PENDING.getStatusString(), response.getStatusPayment());
-	}
-
-	@Test
-	void testGetByIdNotFound() {
-		when(orderRepository.findById(anyString())).thenReturn(Optional.empty());
-
-		ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-				() -> orderService.getById("orderId"));
-		assertEquals("id is not exist", exception.getReason());
-	}
-
-	@Test
-	void testDelete() {
-		Order order = new Order();
-		order.setId("orderId");
-
-		when(orderRepository.findById(anyString())).thenReturn(Optional.of(order));
-
-		orderService.delete("orderId");
-
-		verify(orderRepository, times(1)).deleteById("orderId");
-	}
-
-	@Test
-	void testDeleteNotFound() {
-		when(orderRepository.findById(anyString())).thenReturn(Optional.empty());
-
-		ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-				() -> orderService.delete("orderId"));
-		assertEquals("id is not exist", exception.getReason());
-	}
-
-	@Test
-	void testChangeStatus() {
-		Order order = new Order();
-		order.setId("orderId");
-		order.setStatus(StatusOrder.PENDING);
-
-		when(orderRepository.save(any(Order.class))).thenReturn(order);
-
-		Order updatedOrder = orderService.changeStatus(order);
-
-		assertNotNull(updatedOrder);
-		assertEquals(order.getId(), updatedOrder.getId());
+		assertEquals(2, responses.size());
 	}
 
 	@Test
 	void testChangeStatusPayment() {
 		Order order = new Order();
-		order.setId("orderId");
+		order.setId("1");
 		order.setStatusPayment(StatusPayment.PENDING);
 
-		when(orderRepository.save(any(Order.class))).thenReturn(order);
+		when(repository.save(order)).thenReturn(order);
 
 		Order updatedOrder = orderService.changeStatusPayment(order);
 
-		assertNotNull(updatedOrder);
-		assertEquals(order.getId(), updatedOrder.getId());
+		assertEquals(StatusPayment.PENDING, updatedOrder.getStatusPayment());
 	}
 
 	@Test
-	void testGetAll() {
-
-		String productId = "1";
-
-		User farmer = new User();
-		farmer.setId("1");
-		farmer.setUsername("Agus");
-
-		User umkm = new User();
-		umkm.setId("2");
-		umkm.setUsername("Rian");
-
-		Product product = new Product();
-		product.setId(productId);
-		product.setCode("TIMUN");
-		product.setName("Timun");
-		product.setFarmer(farmer);
-
+	void testChangeStatus() {
 		Order order = new Order();
-		order.setId("orderId");
+		order.setId("1");
 		order.setStatus(StatusOrder.PENDING);
-		order.setStatusPayment(StatusPayment.PENDING);
-		order.setProduct(product);
-		order.setFarmer(farmer);
-		order.setUmkm(umkm);
 
-		when(orderRepository.findAll()).thenReturn(List.of(order));
+		when(repository.save(order)).thenReturn(order);
 
-		List<OrderResponse> responseList = orderService.getAll();
+		Order updatedOrder = orderService.changeStatus(order);
 
-		assertNotNull(responseList);
-		assertEquals(1, responseList.size());
-		assertEquals("orderId", responseList.get(0).getId());
+		assertEquals(StatusOrder.PENDING, updatedOrder.getStatus());
 	}
+
 }

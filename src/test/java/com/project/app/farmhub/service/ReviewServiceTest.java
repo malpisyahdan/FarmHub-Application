@@ -1,11 +1,11 @@
 package com.project.app.farmhub.service;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,31 +16,32 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockedStatic;
+import org.mockito.MockitoAnnotations;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.entity.Product;
 import com.project.app.farmhub.entity.Review;
 import com.project.app.farmhub.entity.User;
 import com.project.app.farmhub.error.ConstraintValidationException;
-import com.project.app.farmhub.repository.ReviewRepository;
+import com.project.app.farmhub.error.ErrorMessageConstant;
+import com.project.app.farmhub.helper.SecurityHelper;
+import com.project.app.farmhub.repository.MasterRepository;
 import com.project.app.farmhub.request.CreateReviewRequest;
 import com.project.app.farmhub.request.UpdateReviewRequest;
 import com.project.app.farmhub.response.ReviewResponse;
 import com.project.app.farmhub.service.impl.ReviewServiceImpl;
 
-@ExtendWith(MockitoExtension.class)
 class ReviewServiceTest {
 
 	@Mock
-	private ReviewRepository reviewRepository;
+	private MasterRepository<Review, String> repository;
 
 	@Mock
-	private UserDetailsServiceImp userDetailsService;
+	private UserDetailsServiceImp userService;
 
 	@Mock
 	private ProductService productService;
@@ -48,143 +49,135 @@ class ReviewServiceTest {
 	@InjectMocks
 	private ReviewServiceImpl reviewService;
 
-	private Review review;
-	private CreateReviewRequest createReviewRequest;
-	private UpdateReviewRequest updateReviewRequest;
-
 	@BeforeEach
-	public void setUp() {
-		review = new Review();
-		review.setId("review123");
-
-		createReviewRequest = new CreateReviewRequest();
-		createReviewRequest.setProductId("product123");
-		createReviewRequest.setRating(90);
-		createReviewRequest.setComment("Good product");
-
-		updateReviewRequest = new UpdateReviewRequest();
-		updateReviewRequest.setId("review123");
-		updateReviewRequest.setProductId("product123");
-		updateReviewRequest.setRating(85);
-		updateReviewRequest.setComment("Updated comment");
-
-		Mockito.lenient().when(userDetailsService.getEntityById(anyString())).thenReturn(Optional.empty());
+	void setUp() {
+		MockitoAnnotations.openMocks(this);
 	}
 
 	@Test
-	void testAddReview() {
-		when(productService.getEntityById(anyString())).thenReturn(Optional.of(new Product()));
+	void addReview() {
+		CreateReviewRequest request = new CreateReviewRequest();
+		request.setProductId("productId");
+		request.setRating(90);
+		request.setComment("Great product!");
 
-		when(userDetailsService.getEntityById(anyString())).thenReturn(Optional.of(new User()));
+		User currentUser = new User();
+		currentUser.setId("1");
+		currentUser.setUsername("Agus");
 
-		when(reviewRepository.saveAndFlush(any(Review.class))).thenReturn(review);
+		try (MockedStatic<SecurityHelper> mockedStatic = mockStatic(SecurityHelper.class)) {
+			mockedStatic.when(SecurityHelper::getCurrentUserId).thenReturn("1");
 
-		reviewService.add(createReviewRequest);
+			when(productService.getEntityById("productId")).thenReturn(Optional.of(new Product()));
+			when(userService.getEntityById("1")).thenReturn(Optional.of(currentUser));
+			when(SecurityHelper.hasRole("FARMER")).thenReturn(true);
 
-		verify(reviewRepository, times(1)).saveAndFlush(any(Review.class));
+			reviewService.add(request);
+
+			verify(repository, times(1)).save(any(Review.class));
+		}
 	}
 
 	@Test
-	void testAddReviewProductNotFound() {
-		when(productService.getEntityById(anyString())).thenReturn(Optional.empty());
+	void addReviewProductNotExists() {
+		CreateReviewRequest request = new CreateReviewRequest();
+		request.setProductId("invalidProductId");
+		request.setRating(90);
+		request.setComment("Great product!");
 
-		assertThrows(ResponseStatusException.class, () -> {
-			reviewService.add(createReviewRequest);
+		when(productService.getEntityById("invalidProductId")).thenReturn(Optional.empty());
+
+		Exception exception = assertThrows(ResponseStatusException.class, () -> {
+			reviewService.add(request);
 		});
+
+		assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) exception).getStatusCode());
 	}
 
 	@Test
-	void testEditReview() {
-		when(reviewRepository.findById(anyString())).thenReturn(Optional.of(review));
+	void editReview() {
+		UpdateReviewRequest request = new UpdateReviewRequest();
+		request.setId("reviewId");
+		request.setProductId("productId");
+		request.setRating(85);
+		request.setComment("Updated comment");
 
-		when(productService.getEntityById(anyString())).thenReturn(Optional.of(new Product()));
+		Review existingReview = new Review();
+		when(repository.findById("reviewId", Review.class)).thenReturn(Optional.of(existingReview));
+		when(productService.getEntityById("productId")).thenReturn(Optional.of(new Product()));
 
-		reviewService.edit(updateReviewRequest);
-
-		verify(reviewRepository, times(1)).saveAndFlush(any(Review.class));
+		assertDoesNotThrow(() -> reviewService.edit(request));
+		verify(repository, times(1)).save(existingReview);
 	}
 
 	@Test
-	void testEditReviewNotFound() {
-		when(reviewRepository.findById(anyString())).thenReturn(Optional.empty());
+	void editReviewNotExists() {
+		UpdateReviewRequest request = new UpdateReviewRequest();
+		request.setId("invalidReviewId");
+		request.setProductId("productId");
+		request.setRating(85);
+		request.setComment("Updated comment");
 
-		assertThrows(ConstraintValidationException.class, () -> {
-			reviewService.edit(updateReviewRequest);
+		when(repository.findById("invalidReviewId", Review.class)).thenReturn(Optional.empty());
+
+		Exception exception = assertThrows(ConstraintValidationException.class, () -> {
+			reviewService.edit(request);
 		});
+
+		assertEquals(", id: [" + ErrorMessageConstant.IS_NOT_EXISTS + "]", exception.getMessage());
 	}
 
 	@Test
-	void testDeleteReview() {
-		when(reviewRepository.findById(anyString())).thenReturn(Optional.of(review));
+	void deleteReview() {
+		String reviewId = "reviewId";
+		Review review = new Review();
 
-		reviewService.delete("review123");
+		when(repository.findById(reviewId, Review.class)).thenReturn(Optional.of(review));
 
-		verify(reviewRepository, times(1)).deleteById("review123");
+		assertDoesNotThrow(() -> reviewService.delete(reviewId));
+		verify(repository, times(1)).delete(review);
 	}
 
 	@Test
-	void testDeleteReviewNotFound() {
-		when(reviewRepository.findById(anyString())).thenReturn(Optional.empty());
+	void deleteReviewNotExists() {
+		String reviewId = "invalidReviewId";
 
-		assertThrows(ResponseStatusException.class, () -> {
-			reviewService.delete("review123");
+		when(repository.findById(reviewId, Review.class)).thenReturn(Optional.empty());
+
+		Exception exception = assertThrows(ResponseStatusException.class, () -> {
+			reviewService.delete(reviewId);
 		});
+
+		assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) exception).getStatusCode());
 	}
 
 	@Test
-	void testGetEntityById() {
-		when(reviewRepository.findById(anyString())).thenReturn(Optional.of(review));
+	void getById() {
+		String reviewId = "reviewId";
+		Review review = new Review();
+		review.setId(reviewId);
+		review.setProduct(new Product());
+		review.setUmkm(new User());
 
-		Optional<Review> result = reviewService.getEntityById("review123");
+		when(repository.findById(reviewId, Review.class)).thenReturn(Optional.of(review));
 
-		assertTrue(result.isPresent());
-		assertEquals(review.getId(), result.get().getId());
-	}
-
-	@Test
-	void testGetEntityByIdNotFound() {
-		when(reviewRepository.findById(anyString())).thenReturn(Optional.empty());
-
-		Optional<Review> result = reviewService.getEntityById("review123");
-
-		assertTrue(result.isEmpty());
-	}
-
-	@Test
-	void testGetById() {
-
-		String reviewId = "review123";
-
-		User umkm = new User();
-		umkm.setId("1");
-		umkm.setUsername("Agus");
-
-		Product product = new Product();
-		product.setId("1");
-		product.setCode("TIMUN");
-		product.setName("Timun");
-
-		Review rev = new Review();
-		rev.setId(reviewId);
-		rev.setUmkm(umkm);
-		rev.setProduct(product);
-		rev.setComment("Bagus Buahnya");
-		rev.setRating(99);
-		when(reviewRepository.findById(anyString())).thenReturn(Optional.of(rev));
-
-		ReviewResponse response = reviewService.getById("review123");
+		ReviewResponse response = reviewService.getById(reviewId);
 
 		assertNotNull(response);
-		assertEquals("review123", response.getId());
+		assertEquals(reviewId, response.getId());
 	}
 
 	@Test
-	void testGetByIdNotFound() {
-		when(reviewRepository.findById(anyString())).thenReturn(Optional.empty());
+	void getByIdNotExists() {
+		String reviewId = "invalidReviewId";
 
-		assertThrows(ResponseStatusException.class, () -> {
-			reviewService.getById("review123");
+		when(repository.findById(reviewId, Review.class)).thenReturn(Optional.empty());
+
+		Exception exception = assertThrows(ResponseStatusException.class, () -> {
+			reviewService.getById(reviewId);
 		});
+
+		assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) exception).getStatusCode());
 	}
 
 	@Test
@@ -211,7 +204,7 @@ class ReviewServiceTest {
 		List<Review> reviews = new ArrayList<>();
 
 		reviews.add(rev);
-		when(reviewRepository.findAll()).thenReturn(reviews);
+		when(repository.findAll(Review.class)).thenReturn(reviews);
 
 		List<ReviewResponse> responses = reviewService.getAll();
 
@@ -221,5 +214,4 @@ class ReviewServiceTest {
 		ReviewResponse response = responses.get(0);
 		assertEquals("review123", response.getId());
 	}
-
 }
