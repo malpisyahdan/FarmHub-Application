@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,11 +20,12 @@ import com.project.app.farmhub.response.ShipmentResponse;
 import com.project.app.farmhub.response.WebResponse;
 import com.project.app.farmhub.service.ShipmentService;
 
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping({ "/api/v1/farmhub" })
+@RequestMapping({ "/api/farmhub" })
 public class ShipmentController {
 
 	private static final Logger logger = LoggerFactory.getLogger(ShipmentController.class);
@@ -33,25 +33,25 @@ public class ShipmentController {
 	private final ShipmentService service;
 	private static final String PROP_SHIPMENT = "shipment ";
 
-	@PostMapping(value = "/shipment", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<WebResponse<String>> add(@RequestBody CreateShipmentRequest request) {
+	@PostMapping(value = "/shipment")
+	public ResponseEntity<WebResponse<String>> add(@Valid @RequestBody CreateShipmentRequest request) {
 		logger.info("Add method called with request: {}", request);
 		service.add(request);
 		return ResponseEntity.ok(ResponseHelper.ok(PROP_SHIPMENT + ErrorMessageConstant.HAS_BEEN_ADDED_SUCCESSFULLY));
 	}
 
-	@DeleteMapping(value = "/shipment/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+	@DeleteMapping(value = "/shipment/{id}")
 	public ResponseEntity<WebResponse<String>> delete(@PathVariable String id) {
 		service.delete(id);
 		return ResponseEntity.ok(ResponseHelper.ok(PROP_SHIPMENT + ErrorMessageConstant.HAS_BEEN_DELETED_SUCCESSFULLY));
 	}
 
-	@GetMapping(value = "/shipment/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+	@GetMapping(value = "/shipment/{id}")
 	public ResponseEntity<WebResponse<ShipmentResponse>> getById(@PathVariable String id) {
 		return ResponseEntity.ok(ResponseHelper.ok(service.getById(id)));
 	}
 
-	@GetMapping(value = "/shipment", produces = MediaType.APPLICATION_JSON_VALUE)
+	@GetMapping(value = "/shipment")
 	public ResponseEntity<WebResponse<List<ShipmentResponse>>> getAll() {
 		return ResponseEntity.ok(ResponseHelper.ok(service.getAll()));
 	}

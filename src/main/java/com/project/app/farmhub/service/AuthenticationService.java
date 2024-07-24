@@ -1,7 +1,5 @@
 package com.project.app.farmhub.service;
 
-import java.util.List;
-
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,9 +21,7 @@ public class AuthenticationService {
 	private final MasterRepository<User, String> repository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
-
 	private final TokenRepository tokenRepository;
-
 	private final AuthenticationManager authenticationManager;
 
 	@Transactional
@@ -58,24 +54,10 @@ public class AuthenticationService {
 		User user = repository.findByField("username", request.getUsername(), User.class).orElseThrow();
 		String accessToken = jwtService.generateAccessToken(user);
 
-		revokeAllTokenByUser(user);
 		saveUserToken(accessToken, user);
 
 		return new AuthenticationResponse(accessToken, "User login was successful");
 
-	}
-
-	private void revokeAllTokenByUser(User user) {
-		List<Token> validTokens = tokenRepository.findAllAccessTokensByUser(user.getId());
-		if (validTokens.isEmpty()) {
-			return;
-		}
-
-		validTokens.forEach(t -> {
-			t.setLoggedOut(true);
-		});
-
-		tokenRepository.saveAll(validTokens);
 	}
 
 	private void saveUserToken(String accessToken, User user) {

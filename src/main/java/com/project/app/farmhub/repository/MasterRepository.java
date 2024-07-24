@@ -17,5 +17,4 @@ public interface MasterRepository<T, ID> {
 	
 	void delete(T entity);
 	
-	List<T> saveAll(List<T> entities);
 }

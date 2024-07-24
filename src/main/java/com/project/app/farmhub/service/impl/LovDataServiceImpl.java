@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.entity.LovData;
-import com.project.app.farmhub.error.ConstraintValidationException;
 import com.project.app.farmhub.error.ErrorMessageConstant;
 import com.project.app.farmhub.helper.SecurityHelper;
 import com.project.app.farmhub.repository.LovDataRepositoryImpl;
@@ -68,7 +67,7 @@ public class LovDataServiceImpl implements LovDataService {
 			mapToEntity(entity, request);
 			repository.save(entity);
 		}, () -> {
-			throw new ConstraintValidationException("lov", ErrorMessageConstant.IS_NOT_EXISTS);
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "lov" + ErrorMessageConstant.IS_NOT_EXISTS);
 		});
 
 	}

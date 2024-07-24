@@ -14,7 +14,7 @@ import lombok.AllArgsConstructor;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping({ "/api/v1/farmhub" })
+@RequestMapping({ "/api/farmhub" })
 public class AuthenticationController {
 
 	private final AuthenticationService authService;

@@ -1,7 +1,6 @@
 package com.project.app.farmhub.service.impl;
 
 import java.math.BigDecimal;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -14,7 +13,6 @@ import com.project.app.farmhub.common.type.StatusOrder;
 import com.project.app.farmhub.common.type.StatusPayment;
 import com.project.app.farmhub.entity.Order;
 import com.project.app.farmhub.entity.Product;
-import com.project.app.farmhub.error.ConstraintValidationException;
 import com.project.app.farmhub.error.ErrorMessageConstant;
 import com.project.app.farmhub.helper.SecurityHelper;
 import com.project.app.farmhub.repository.MasterRepository;
@@ -65,16 +63,16 @@ public class OrderServiceImpl implements OrderService {
 	private void validateProductStock(CreateOrderRequest request) {
 		Optional<Product> productOpt = productService.getEntityById(request.getProductId());
 		if (productOpt.isEmpty()) {
-			throw new ConstraintValidationException(null,
-					Map.ofEntries(Map.entry("productId", Collections.singletonList("Product tidak ditemukan"))));
+			Map<String, List<String>> errorDetails = Map.of("productId", List.of("Product tidak ditemukan"));
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorDetails.toString());
 		}
-
 		Product product = productOpt.get();
 
 		if (product.getStock() < request.getQuantity()) {
-			throw new ConstraintValidationException(null,
-					Map.ofEntries(Map.entry("quantity", Collections.singletonList("Stock product tidak mencukupi"))));
+			Map<String, List<String>> errorDetails = Map.of("quantity", List.of("Stock produk tidak mencukupi"));
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorDetails.toString());
 		}
+
 	}
 
 	private void mapToEntity(Order entity, CreateOrderRequest request) {
@@ -84,7 +82,7 @@ public class OrderServiceImpl implements OrderService {
 		entity.setQuantity(request.getQuantity());
 
 		Product product = productService.getEntityById(request.getProductId()).orElseThrow(
-				() -> new IllegalArgumentException("Product not found with id: " + request.getProductId()));
+				() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Product not found with id: " + request.getProductId()));
 
 		entity.setProduct(product);
 
@@ -167,16 +165,16 @@ public class OrderServiceImpl implements OrderService {
 	@Override
 	public void cancelOrder(CancelOrderRequest request) {
 		Order order = getEntityById(request.getId())
-				.orElseThrow(() -> new IllegalArgumentException("Order not found with id: " + request.getId()));
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order not found with id: " + request.getId()));
 
 		if (order.getStatus() != StatusOrder.PENDING) {
-			throw new IllegalArgumentException("Only orders with status PENDING can be canceled");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only orders with status PENDING can be canceled");
 		}
 
 		order.setStatus(StatusOrder.CANCELLED);
 
 		Product product = productService.getEntityById(order.getProduct().getId()).orElseThrow(
-				() -> new IllegalArgumentException("Product not found with id: " + order.getProduct().getId()));
+				() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Product not found with id: " + order.getProduct().getId()));
 
 		product.setStock(product.getStock() + order.getQuantity());
 

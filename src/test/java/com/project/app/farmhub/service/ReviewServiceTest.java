@@ -26,8 +26,6 @@ import org.springframework.web.server.ResponseStatusException;
 import com.project.app.farmhub.entity.Product;
 import com.project.app.farmhub.entity.Review;
 import com.project.app.farmhub.entity.User;
-import com.project.app.farmhub.error.ConstraintValidationException;
-import com.project.app.farmhub.error.ErrorMessageConstant;
 import com.project.app.farmhub.helper.SecurityHelper;
 import com.project.app.farmhub.repository.MasterRepository;
 import com.project.app.farmhub.request.CreateReviewRequest;
@@ -120,11 +118,11 @@ class ReviewServiceTest {
 
 		when(repository.findById("invalidReviewId", Review.class)).thenReturn(Optional.empty());
 
-		Exception exception = assertThrows(ConstraintValidationException.class, () -> {
+		Exception exception = assertThrows(ResponseStatusException.class, () -> {
 			reviewService.edit(request);
 		});
 
-		assertEquals(", id: [" + ErrorMessageConstant.IS_NOT_EXISTS + "]", exception.getMessage());
+		assertEquals("400 BAD_REQUEST \"idis not exists\"", exception.getMessage());
 	}
 
 	@Test

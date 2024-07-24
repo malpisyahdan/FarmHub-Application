@@ -52,11 +52,11 @@ public class PaymentServiceImpl implements PaymentService {
 	private void mapToEntity(Payment entity, CreatePaymentRequest request) {
 
 		Order order = orderService.getEntityById(request.getOrderId())
-				.orElseThrow(() -> new IllegalArgumentException("Order not found with id: " + request.getOrderId()));
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order not found with id: " + request.getOrderId()));
 
 		entity.setOrder(order);
 		LovData lov = lovService.getEntityById(request.getLovPaymentMethodId())
-				.orElseThrow(() -> new IllegalArgumentException("lov not found with id: " + request.getLovPaymentMethodId()));
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "lov not found with id: " + request.getLovPaymentMethodId()));
 		
 		entity.setLovPaymentMethod(lov);
 		entity.setStatusPayment(StatusPayment.PAID);

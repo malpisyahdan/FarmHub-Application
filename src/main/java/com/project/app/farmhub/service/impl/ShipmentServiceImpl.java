@@ -54,13 +54,13 @@ public class ShipmentServiceImpl implements ShipmentService {
 	private void mapToEntity(Shipment entity, CreateShipmentRequest request) {
 
 		Order order = orderService.getEntityById(request.getOrderId())
-				.orElseThrow(() -> new IllegalArgumentException("Order not found with id: " + request.getOrderId()));
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order not found with id: " + request.getOrderId()));
 
 		entity.setOrder(order);
 		String trackingNumber = generateTrackingNumber();
 		entity.setTrackingNumber(trackingNumber);
 		LovData lov = lovService.getEntityById(request.getLovCourierServiceId()).orElseThrow(
-				() -> new IllegalArgumentException("lov not found with id: " + request.getLovCourierServiceId()));
+				() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "lov not found with id: " + request.getLovCourierServiceId()));
 		entity.setLovCourierService(lov);
 		entity.setStatusShipment(StatusShipment.SHIPPED);
 

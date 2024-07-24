@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.entity.Product;
-import com.project.app.farmhub.error.ConstraintValidationException;
 import com.project.app.farmhub.error.ErrorMessageConstant;
 import com.project.app.farmhub.helper.SecurityHelper;
 import com.project.app.farmhub.repository.MasterRepository;
@@ -19,7 +18,6 @@ import com.project.app.farmhub.service.ProductService;
 import com.project.app.farmhub.service.UserDetailsServiceImp;
 
 import jakarta.transaction.Transactional;
-import jakarta.validation.ValidationException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -28,6 +26,7 @@ public class ProductServiceImpl implements ProductService {
 
 	private final MasterRepository<Product, String> repository;
 	private final UserDetailsServiceImp userService;
+	private static final String PROP_CODE = "code";
 
 	@Transactional
 	@Override
@@ -37,7 +36,7 @@ public class ProductServiceImpl implements ProductService {
 		Product entity = new Product();
 		String currentUserId = SecurityHelper.getCurrentUserId();
 		if (currentUserId == null) {
-			throw new IllegalArgumentException("Unable to get the current user ID.");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to get the current user ID.");
 		}
 		entity.setFarmer(userService.getEntityById(currentUserId).orElse(null));
 		mapToEntity(entity, request);
@@ -53,13 +52,13 @@ public class ProductServiceImpl implements ProductService {
 	private void validateBkNotExist(CreateProductRequest request) {
 		long count = repository.countByField("code", request.getCode(), Product.class);
 		if (count > 0) {
-			throw new ValidationException("code is exist");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, PROP_CODE+ErrorMessageConstant.IS_EXISTS);
 		}
 	}
 
 	private void validateBkNotChange(UpdateProductRequest request, Product entity) {
 		if (!request.getCode().equals(entity.getCode())) {
-			throw new ValidationException("code cannot be change");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, PROP_CODE+ErrorMessageConstant.CANNOT_BE_CHANGE);
 		}
 	}
 
@@ -80,7 +79,7 @@ public class ProductServiceImpl implements ProductService {
 			mapToEntity(entity, request);
 			repository.save(entity);
 		}, () -> {
-			throw new ConstraintValidationException("id", ErrorMessageConstant.IS_NOT_EXISTS);
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id"+ErrorMessageConstant.IS_NOT_EXISTS);
 		});
 	}
 
@@ -91,7 +90,7 @@ public class ProductServiceImpl implements ProductService {
 		getEntityById(id).ifPresentOrElse(entity -> {
 			repository.delete(entity);
 		}, () -> {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id is not exist");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id"+ ErrorMessageConstant.IS_NOT_EXISTS);
 		});
 	}
 

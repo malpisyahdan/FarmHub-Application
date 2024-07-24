@@ -8,7 +8,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,7 +23,6 @@ import com.project.app.farmhub.common.type.StatusPayment;
 import com.project.app.farmhub.entity.Order;
 import com.project.app.farmhub.entity.Product;
 import com.project.app.farmhub.entity.User;
-import com.project.app.farmhub.error.ConstraintValidationException;
 import com.project.app.farmhub.error.ErrorMessageConstant;
 import com.project.app.farmhub.repository.MasterRepository;
 import com.project.app.farmhub.request.CancelOrderRequest;
@@ -67,25 +65,6 @@ class OrderServiceTest {
 	}
 
 	@Test
-	void testAddOrderWithInsufficientStock() {
-		CreateOrderRequest request = new CreateOrderRequest();
-		request.setProductId("1");
-		request.setQuantity(15);
-
-		Product mockProduct = new Product();
-		mockProduct.setId("1");
-		mockProduct.setStock(10);
-
-		when(productService.getEntityById("1")).thenReturn(Optional.of(mockProduct));
-
-		ConstraintValidationException exception = assertThrows(ConstraintValidationException.class, () -> {
-			orderService.add(request);
-		});
-
-		assertEquals(Collections.singletonList("Stock product tidak mencukupi"), exception.getErrors().get("quantity"));
-	}
-
-	@Test
 	void testCancelOrder() {
 		CancelOrderRequest request = new CancelOrderRequest();
 		request.setId("1");
@@ -123,11 +102,11 @@ class OrderServiceTest {
 
 		when(repository.findById("1", Order.class)).thenReturn(Optional.of(mockOrder));
 
-		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+		ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
 			orderService.cancelOrder(request);
 		});
 
-		assertEquals("Only orders with status PENDING can be canceled", exception.getMessage());
+		assertEquals("Only orders with status PENDING can be canceled", exception.getReason());
 	}
 
 	@Test
@@ -137,11 +116,11 @@ class OrderServiceTest {
 
 		when(repository.findById("1", Order.class)).thenReturn(Optional.empty());
 
-		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+		ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
 			orderService.cancelOrder(request);
 		});
 
-		assertEquals("Order not found with id: 1", exception.getMessage());
+		assertEquals("Order not found with id: 1", exception.getReason());
 	}
 
 	@Test

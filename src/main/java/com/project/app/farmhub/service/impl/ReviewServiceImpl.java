@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.entity.Review;
-import com.project.app.farmhub.error.ConstraintValidationException;
 import com.project.app.farmhub.error.ErrorMessageConstant;
 import com.project.app.farmhub.helper.SecurityHelper;
 import com.project.app.farmhub.repository.MasterRepository;
@@ -39,7 +38,7 @@ public class ReviewServiceImpl implements ReviewService {
 		Review entity = new Review();
 		String currentUserId = SecurityHelper.getCurrentUserId();
 		if (currentUserId == null) {
-			throw new IllegalArgumentException("Unable to get the current user ID.");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to get the current user ID.");
 		}
 		entity.setUmkm(userService.getEntityById(currentUserId).orElse(null));
 		mapToEntity(entity, request);
@@ -57,7 +56,7 @@ public class ReviewServiceImpl implements ReviewService {
 
 	private void mapToEntity(Review entity, CreateReviewRequest request) {
 		if (request.getRating() > 100) {
-			throw new IllegalArgumentException("Rating cannot be more than 100");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rating cannot be more than 100");
 		}
 		entity.setProduct(productService.getEntityById(request.getProductId()).orElse(null));
 		entity.setRating(request.getRating());
@@ -73,11 +72,11 @@ public class ReviewServiceImpl implements ReviewService {
 			mapToEntity(entity, request);
 			repository.save(entity);
 		}, () -> {
-			throw new ConstraintValidationException("id", ErrorMessageConstant.IS_NOT_EXISTS);
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id" + ErrorMessageConstant.IS_NOT_EXISTS);
 		});
 
 	}
-	
+
 	@Transactional
 	@Override
 	public void delete(String id) {

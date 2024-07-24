@@ -31,8 +31,6 @@ import com.project.app.farmhub.request.UpdateProductRequest;
 import com.project.app.farmhub.response.ProductResponse;
 import com.project.app.farmhub.service.impl.ProductServiceImpl;
 
-import jakarta.validation.ValidationException;
-
 class ProductServiceTest {
 
 	@Mock
@@ -102,11 +100,11 @@ class ProductServiceTest {
 			when(SecurityHelper.hasRole("FARMER")).thenReturn(true);
 			when(repository.countByField("code", "TIMUN", Product.class)).thenReturn(1L);
 
-			ValidationException exception = assertThrows(ValidationException.class, () -> {
+			ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
 				productService.add(request);
 			});
 
-			assertEquals("code is exist", exception.getMessage());
+			assertEquals("codeis exists", exception.getReason());
 		}
 	}
 
@@ -150,11 +148,11 @@ class ProductServiceTest {
 		try (MockedStatic<SecurityHelper> mockedSecurityHelper = Mockito.mockStatic(SecurityHelper.class)) {
 			mockedSecurityHelper.when(() -> SecurityHelper.hasRole("FARMER")).thenReturn(true);
 
-			ValidationException exception = assertThrows(ValidationException.class, () -> {
+			ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
 				productService.edit(request);
 			});
 
-			assertEquals("code cannot be change", exception.getMessage());
+			assertEquals("codecannot be change", exception.getReason());
 		}
 	}
 
@@ -188,7 +186,7 @@ class ProductServiceTest {
 				productService.delete(productId);
 			});
 
-			assertEquals("id is not exist", exception.getReason());
+			assertEquals("idis not exists", exception.getReason());
 		}
 	}
 

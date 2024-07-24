@@ -10,6 +10,10 @@ import com.project.app.farmhub.entity.LovData;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 
 @Repository
 public class LovDataRepositoryImpl extends MasterRepositoryImpl<LovData, String> implements LovDataRepository {
@@ -19,38 +23,66 @@ public class LovDataRepositoryImpl extends MasterRepositoryImpl<LovData, String>
 
 	@Override
 	public boolean existsByLovTypeAndCode(String lovType, String code) {
-		String query = "SELECT COUNT(*) FROM " + getTableName(LovData.class)
-				+ " WHERE lov_type = :lovType AND code = :code";
-		long count = ((Number) entityManager.createNativeQuery(query).setParameter("lovType", lovType)
-				.setParameter("code", code).getSingleResult()).longValue();
+		CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
+
+		CriteriaQuery<Long> criteriaQuery = criteriaBuilder.createQuery(Long.class);
+
+		Root<LovData> root = criteriaQuery.from(LovData.class);
+
+		Predicate lovTypePredicate = criteriaBuilder.equal(root.get("lovType"), lovType);
+		Predicate codePredicate = criteriaBuilder.equal(root.get("code"), code);
+		criteriaQuery.select(criteriaBuilder.count(root)).where(criteriaBuilder.and(lovTypePredicate, codePredicate));
+
+		long count = entityManager.createQuery(criteriaQuery).getSingleResult();
 		return count > 0;
 	}
 
 	@Override
 	public Optional<LovData> findByLovTypeAndCode(String lovType, String code) {
-		String query = "SELECT * FROM " + getTableName(LovData.class) + " WHERE lov_type = :lovType AND code = :code";
+		CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
+
+		CriteriaQuery<LovData> criteriaQuery = criteriaBuilder.createQuery(LovData.class);
+
+		Root<LovData> root = criteriaQuery.from(LovData.class);
+
+		Predicate lovTypePredicate = criteriaBuilder.equal(root.get("lovType"), lovType);
+		Predicate codePredicate = criteriaBuilder.equal(root.get("code"), code);
+		criteriaQuery.select(root).where(criteriaBuilder.and(lovTypePredicate, codePredicate));
+
 		try {
-			LovData result = (LovData) entityManager.createNativeQuery(query, LovData.class)
-					.setParameter("lovType", lovType).setParameter("code", code).getSingleResult();
+			LovData result = entityManager.createQuery(criteriaQuery).getSingleResult();
 			return Optional.ofNullable(result);
 		} catch (NoResultException e) {
 			return Optional.empty();
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	@Override
 	public List<LovData> findByLovTypeAndIsActive(String lovType, Boolean isActive) {
-		String query = "SELECT * FROM " + getTableName(LovData.class)
-				+ " WHERE lov_type = :lovType AND isActive = :isActive";
-		return entityManager.createNativeQuery(query, LovData.class).setParameter("lovType", lovType)
-				.setParameter("isActive", isActive).getResultList();
+		CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
+
+		CriteriaQuery<LovData> criteriaQuery = criteriaBuilder.createQuery(LovData.class);
+
+		Root<LovData> root = criteriaQuery.from(LovData.class);
+
+		Predicate lovTypePredicate = criteriaBuilder.equal(root.get("lovType"), lovType);
+		Predicate isActivePredicate = criteriaBuilder.equal(root.get("isActive"), isActive);
+		criteriaQuery.select(root).where(criteriaBuilder.and(lovTypePredicate, isActivePredicate));
+
+		return entityManager.createQuery(criteriaQuery).getResultList();
 	}
 
-	@SuppressWarnings("unchecked")
 	@Override
 	public List<LovData> findByLovType(String lovType) {
-		String query = "SELECT * FROM " + getTableName(LovData.class) + " WHERE lov_type = :lovType";
-		return entityManager.createNativeQuery(query, LovData.class).setParameter("lovType", lovType).getResultList();
+		CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
+
+		CriteriaQuery<LovData> criteriaQuery = criteriaBuilder.createQuery(LovData.class);
+
+		Root<LovData> root = criteriaQuery.from(LovData.class);
+
+		Predicate lovTypePredicate = criteriaBuilder.equal(root.get("lovType"), lovType);
+		criteriaQuery.select(root).where(lovTypePredicate);
+
+		return entityManager.createQuery(criteriaQuery).getResultList();
 	}
 }
