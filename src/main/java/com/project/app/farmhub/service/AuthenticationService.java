@@ -7,8 +7,8 @@ import org.springframework.stereotype.Service;
 
 import com.project.app.farmhub.entity.Token;
 import com.project.app.farmhub.entity.User;
-import com.project.app.farmhub.repository.MasterRepository;
 import com.project.app.farmhub.repository.TokenRepository;
+import com.project.app.farmhub.repository.UserRepository;
 import com.project.app.farmhub.response.AuthenticationResponse;
 
 import jakarta.transaction.Transactional;
@@ -18,7 +18,7 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class AuthenticationService {
 
-	private final MasterRepository<User, String> repository;
+	private final UserRepository repository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
 	private final TokenRepository tokenRepository;
@@ -26,7 +26,7 @@ public class AuthenticationService {
 
 	@Transactional
 	public AuthenticationResponse register(User request) {
-		if (repository.findByField("username", request.getUsername(), User.class).isPresent()) {
+		if (repository.findByField(request.getUsername(), User.class).isPresent()) {
 			return new AuthenticationResponse(null, "User already exists");
 		}
 
@@ -51,7 +51,7 @@ public class AuthenticationService {
 		authenticationManager
 				.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
 
-		User user = repository.findByField("username", request.getUsername(), User.class).orElseThrow();
+		User user = repository.findByField(request.getUsername(), User.class).orElseThrow();
 		String accessToken = jwtService.generateAccessToken(user);
 
 		saveUserToken(accessToken, user);

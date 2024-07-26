@@ -3,14 +3,12 @@ package com.project.app.farmhub.service.impl;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.entity.LovData;
 import com.project.app.farmhub.error.ErrorMessageConstant;
 import com.project.app.farmhub.helper.SecurityHelper;
-import com.project.app.farmhub.repository.LovDataRepositoryImpl;
+import com.project.app.farmhub.repository.LovDataRepository;
 import com.project.app.farmhub.request.CreateLovDataRequest;
 import com.project.app.farmhub.request.UpdateLovDataRequest;
 import com.project.app.farmhub.response.LovDataResponse;
@@ -23,7 +21,7 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class LovDataServiceImpl implements LovDataService {
 
-	private final LovDataRepositoryImpl repository;
+	private final LovDataRepository repository;
 
 	@Transactional
 	@Override
@@ -47,7 +45,7 @@ public class LovDataServiceImpl implements LovDataService {
 
 	public void validateBkNotExist(String lovType, String code) {
 		if (repository.existsByLovTypeAndCode(lovType, code)) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "lov is exist.");
+			throw new RuntimeException("lov is exist.");
 		}
 	}
 
@@ -67,7 +65,7 @@ public class LovDataServiceImpl implements LovDataService {
 			mapToEntity(entity, request);
 			repository.save(entity);
 		}, () -> {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "lov" + ErrorMessageConstant.IS_NOT_EXISTS);
+			throw new RuntimeException("lov " + ErrorMessageConstant.IS_NOT_EXISTS);
 		});
 
 	}
@@ -85,10 +83,10 @@ public class LovDataServiceImpl implements LovDataService {
 
 	public void validateBkNotChange(LovData entity, String lovType, String code) {
 		if (!entity.getLovType().equals(lovType)) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "lov type cannot be change.");
+			throw new RuntimeException("lov type cannot be change.");
 		}
 		if (!entity.getCode().equals(code)) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "code cannot be change.");
+			throw new RuntimeException("code cannot be change.");
 		}
 	}
 
@@ -99,7 +97,7 @@ public class LovDataServiceImpl implements LovDataService {
 		getEntityById(id).ifPresentOrElse(entity -> {
 			repository.delete(entity);
 		}, () -> {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id is not exist");
+			throw new RuntimeException("id is not exist");
 		});
 
 	}
@@ -111,7 +109,7 @@ public class LovDataServiceImpl implements LovDataService {
 
 	@Override
 	public LovDataResponse getById(String id) {
-		LovData entity = getEntityById(id).orElse(null);
+		LovData entity = getEntityById(id).orElseThrow(() -> new RuntimeException("id is not exist"));
 		return mapToResponse(entity);
 	}
 

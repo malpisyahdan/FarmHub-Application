@@ -20,21 +20,21 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.entity.Product;
 import com.project.app.farmhub.entity.User;
 import com.project.app.farmhub.helper.SecurityHelper;
-import com.project.app.farmhub.repository.MasterRepository;
+import com.project.app.farmhub.repository.ProductRepository;
 import com.project.app.farmhub.request.CreateProductRequest;
 import com.project.app.farmhub.request.UpdateProductRequest;
 import com.project.app.farmhub.response.ProductResponse;
 import com.project.app.farmhub.service.impl.ProductServiceImpl;
+import com.project.app.farmhub.service.impl.UserDetailsServiceImp;
 
 class ProductServiceTest {
 
 	@Mock
-	private MasterRepository<Product, String> repository;
+	private ProductRepository repository;
 
 	@Mock
 	private UserDetailsServiceImp userService;
@@ -65,7 +65,7 @@ class ProductServiceTest {
 
 			when(userService.getEntityById("1")).thenReturn(Optional.of(currentUser));
 			when(SecurityHelper.hasRole("FARMER")).thenReturn(true);
-			when(repository.countByField("code", "TIMUN", Product.class)).thenReturn(0L);
+			when(repository.countByField("TIMUN", Product.class)).thenReturn(0L);
 
 			productService.add(request);
 
@@ -98,13 +98,13 @@ class ProductServiceTest {
 			mockedStatic.when(SecurityHelper::getCurrentUserId).thenReturn("1");
 
 			when(SecurityHelper.hasRole("FARMER")).thenReturn(true);
-			when(repository.countByField("code", "TIMUN", Product.class)).thenReturn(1L);
+			when(repository.countByField("TIMUN", Product.class)).thenReturn(1L);
 
-			ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+			RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 				productService.add(request);
 			});
 
-			assertEquals("codeis exists", exception.getReason());
+			assertEquals("code is exists", exception.getMessage());
 		}
 	}
 
@@ -148,11 +148,11 @@ class ProductServiceTest {
 		try (MockedStatic<SecurityHelper> mockedSecurityHelper = Mockito.mockStatic(SecurityHelper.class)) {
 			mockedSecurityHelper.when(() -> SecurityHelper.hasRole("FARMER")).thenReturn(true);
 
-			ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+			RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 				productService.edit(request);
 			});
 
-			assertEquals("codecannot be change", exception.getReason());
+			assertEquals("code cannot be change", exception.getMessage());
 		}
 	}
 
@@ -182,11 +182,11 @@ class ProductServiceTest {
 		try (MockedStatic<SecurityHelper> mockedSecurityHelper = Mockito.mockStatic(SecurityHelper.class)) {
 			mockedSecurityHelper.when(() -> SecurityHelper.hasRole("FARMER")).thenReturn(true);
 
-			ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+			RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 				productService.delete(productId);
 			});
 
-			assertEquals("idis not exists", exception.getReason());
+			assertEquals("id is not exists", exception.getMessage());
 		}
 	}
 

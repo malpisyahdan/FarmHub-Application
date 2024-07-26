@@ -18,15 +18,13 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.common.type.StatusOrder;
 import com.project.app.farmhub.common.type.StatusShipment;
 import com.project.app.farmhub.entity.LovData;
 import com.project.app.farmhub.entity.Order;
 import com.project.app.farmhub.entity.Shipment;
-import com.project.app.farmhub.repository.MasterRepository;
+import com.project.app.farmhub.repository.ShipmentRepository;
 import com.project.app.farmhub.request.CreateShipmentRequest;
 import com.project.app.farmhub.response.ShipmentResponse;
 import com.project.app.farmhub.service.impl.ShipmentServiceImpl;
@@ -34,7 +32,7 @@ import com.project.app.farmhub.service.impl.ShipmentServiceImpl;
 class ShipmentServiceTest {
 
 	@Mock
-	private MasterRepository<Shipment, String> repository;
+	private ShipmentRepository repository;
 
 	@Mock
 	private OrderService orderService;
@@ -75,11 +73,11 @@ class ShipmentServiceTest {
 
 		when(orderService.getEntityById("invalidOrderId")).thenReturn(Optional.empty());
 
-		Exception exception = assertThrows(ResponseStatusException.class, () -> {
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 			shipmentService.add(request);
 		});
 
-		assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) exception).getStatusCode());
+		assertEquals("order is not exists", exception.getMessage());
 	}
 
 	@Test
@@ -99,11 +97,11 @@ class ShipmentServiceTest {
 
 		when(repository.findById(shipmentId, Shipment.class)).thenReturn(Optional.empty());
 
-		Exception exception = assertThrows(ResponseStatusException.class, () -> {
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 			shipmentService.delete(shipmentId);
 		});
 
-		assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) exception).getStatusCode());
+		assertEquals("id is not exist", exception.getMessage());
 	}
 
 	@Test
@@ -129,11 +127,11 @@ class ShipmentServiceTest {
 
 		when(repository.findById(shipmentId, Shipment.class)).thenReturn(Optional.empty());
 
-		Exception exception = assertThrows(ResponseStatusException.class, () -> {
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 			shipmentService.getById(shipmentId);
 		});
 
-		assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) exception).getStatusCode());
+		assertEquals("id is not exist", exception.getMessage());
 	}
 
 	@Test

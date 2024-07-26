@@ -2,12 +2,11 @@ version: '3.8'
 
 services:
   app:
-    image: farmhub
+    image: alpisyahdan29/farmhub
     build:
       context: .
-      dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "8083:8080"
     environment:
       SPRING_APPLICATION_NAME: farmhub
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/farmhub
@@ -25,4 +24,4 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "5454:5432"

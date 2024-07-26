@@ -3,9 +3,7 @@ package com.project.app.farmhub.service.impl;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.common.type.StatusOrder;
 import com.project.app.farmhub.common.type.StatusShipment;
@@ -13,7 +11,7 @@ import com.project.app.farmhub.entity.LovData;
 import com.project.app.farmhub.entity.Order;
 import com.project.app.farmhub.entity.Shipment;
 import com.project.app.farmhub.error.ErrorMessageConstant;
-import com.project.app.farmhub.repository.MasterRepository;
+import com.project.app.farmhub.repository.ShipmentRepository;
 import com.project.app.farmhub.request.CreateShipmentRequest;
 import com.project.app.farmhub.response.ShipmentResponse;
 import com.project.app.farmhub.service.LovDataService;
@@ -27,7 +25,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ShipmentServiceImpl implements ShipmentService {
 
-	private final MasterRepository<Shipment, String> repository;
+	private final ShipmentRepository repository;
 	private final OrderService orderService;
 	private final LovDataService lovService;
 
@@ -46,21 +44,20 @@ public class ShipmentServiceImpl implements ShipmentService {
 	private void validateNonBk(CreateShipmentRequest request) {
 
 		orderService.getEntityById(request.getOrderId())
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-						PROP_ORDER + ErrorMessageConstant.IS_NOT_EXISTS));
+				.orElseThrow(() -> new RuntimeException(PROP_ORDER + ErrorMessageConstant.IS_NOT_EXISTS));
 
 	}
 
 	private void mapToEntity(Shipment entity, CreateShipmentRequest request) {
 
 		Order order = orderService.getEntityById(request.getOrderId())
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order not found with id: " + request.getOrderId()));
+				.orElseThrow(() -> new RuntimeException("Order not found with id: " + request.getOrderId()));
 
 		entity.setOrder(order);
 		String trackingNumber = generateTrackingNumber();
 		entity.setTrackingNumber(trackingNumber);
-		LovData lov = lovService.getEntityById(request.getLovCourierServiceId()).orElseThrow(
-				() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "lov not found with id: " + request.getLovCourierServiceId()));
+		LovData lov = lovService.getEntityById(request.getLovCourierServiceId())
+				.orElseThrow(() -> new RuntimeException("lov not found with id: " + request.getLovCourierServiceId()));
 		entity.setLovCourierService(lov);
 		entity.setStatusShipment(StatusShipment.SHIPPED);
 
@@ -76,7 +73,7 @@ public class ShipmentServiceImpl implements ShipmentService {
 		getEntityById(id).ifPresentOrElse(entity -> {
 			repository.delete(entity);
 		}, () -> {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id is not exist");
+			throw new RuntimeException("id is not exist");
 		});
 
 	}
@@ -88,8 +85,7 @@ public class ShipmentServiceImpl implements ShipmentService {
 
 	@Override
 	public ShipmentResponse getById(String id) {
-		Shipment entity = getEntityById(id)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "id" + " is not exist"));
+		Shipment entity = getEntityById(id).orElseThrow(() -> new RuntimeException("id is not exist"));
 		return mapToResponse(entity);
 	}
 
@@ -122,8 +118,8 @@ public class ShipmentServiceImpl implements ShipmentService {
 	}
 
 	@Override
-	public Optional<Shipment> getEntityByOrderId(String fieldName, Object value, Class<Shipment> entityType) {
-		return repository.findByField(fieldName, value, entityType);
+	public Optional<Shipment> getEntityByOrderId(Object value, Class<Shipment> entityType) {
+		return repository.findByField(value, entityType);
 	}
 
 }

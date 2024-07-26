@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.common.type.StatusOrder;
 import com.project.app.farmhub.common.type.StatusPayment;
@@ -24,16 +23,17 @@ import com.project.app.farmhub.entity.Order;
 import com.project.app.farmhub.entity.Product;
 import com.project.app.farmhub.entity.User;
 import com.project.app.farmhub.error.ErrorMessageConstant;
-import com.project.app.farmhub.repository.MasterRepository;
+import com.project.app.farmhub.repository.OrderRepository;
 import com.project.app.farmhub.request.CancelOrderRequest;
 import com.project.app.farmhub.request.CreateOrderRequest;
 import com.project.app.farmhub.response.OrderResponse;
 import com.project.app.farmhub.service.impl.OrderServiceImpl;
+import com.project.app.farmhub.service.impl.UserDetailsServiceImp;
 
 class OrderServiceTest {
 
 	@Mock
-	private MasterRepository<Order, String> repository;
+	private OrderRepository repository;
 
 	@Mock
 	private UserDetailsServiceImp userService;
@@ -57,11 +57,11 @@ class OrderServiceTest {
 
 		when(productService.getEntityById("1")).thenReturn(Optional.empty());
 
-		ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 			orderService.add(request);
 		});
 
-		assertEquals("product " + ErrorMessageConstant.IS_NOT_EXISTS, exception.getReason());
+		assertEquals("product " + ErrorMessageConstant.IS_NOT_EXISTS, exception.getMessage());
 	}
 
 	@Test
@@ -102,11 +102,11 @@ class OrderServiceTest {
 
 		when(repository.findById("1", Order.class)).thenReturn(Optional.of(mockOrder));
 
-		ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 			orderService.cancelOrder(request);
 		});
 
-		assertEquals("Only orders with status PENDING can be canceled", exception.getReason());
+		assertEquals("Only orders with status PENDING can be canceled", exception.getMessage());
 	}
 
 	@Test
@@ -116,11 +116,11 @@ class OrderServiceTest {
 
 		when(repository.findById("1", Order.class)).thenReturn(Optional.empty());
 
-		ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 			orderService.cancelOrder(request);
 		});
 
-		assertEquals("Order not found with id: 1", exception.getReason());
+		assertEquals("Order not found with id: 1", exception.getMessage());
 	}
 
 	@Test
@@ -142,11 +142,11 @@ class OrderServiceTest {
 
 		when(repository.findById(orderId, Order.class)).thenReturn(Optional.empty());
 
-		ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 			orderService.delete(orderId);
 		});
 
-		assertEquals("id is not exist", exception.getReason());
+		assertEquals("id is not exist", exception.getMessage());
 	}
 
 	@Test

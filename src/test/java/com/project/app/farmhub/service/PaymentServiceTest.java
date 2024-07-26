@@ -17,13 +17,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.common.type.StatusPayment;
 import com.project.app.farmhub.entity.LovData;
 import com.project.app.farmhub.entity.Order;
 import com.project.app.farmhub.entity.Payment;
-import com.project.app.farmhub.repository.MasterRepository;
+import com.project.app.farmhub.repository.PaymentRepository;
 import com.project.app.farmhub.request.CreatePaymentRequest;
 import com.project.app.farmhub.response.PaymentResponse;
 import com.project.app.farmhub.service.impl.PaymentServiceImpl;
@@ -32,7 +31,7 @@ import com.project.app.farmhub.service.impl.PaymentServiceImpl;
 class PaymentServiceTest {
 
 	@Mock
-	private MasterRepository<Payment, String> repository;
+	private PaymentRepository repository;
 
 	@Mock
 	private OrderService orderService;
@@ -83,11 +82,11 @@ class PaymentServiceTest {
 	void testAddPaymentOrderNotFound() {
 		when(orderService.getEntityById("order1")).thenReturn(Optional.empty());
 
-		ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 			paymentService.add(request);
 		});
 
-		assertEquals("order is not exists", exception.getReason());
+		assertEquals("order is not exists", exception.getMessage());
 	}
 
 	@Test
@@ -104,11 +103,11 @@ class PaymentServiceTest {
 	void testDeletePaymentNotFound() {
 		when(repository.findById("payment1", Payment.class)).thenReturn(Optional.empty());
 
-		ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 			paymentService.delete("payment1");
 		});
 
-		assertEquals("id is not exist", exception.getReason());
+		assertEquals("id is not exist", exception.getMessage());
 	}
 
 	@Test
@@ -126,11 +125,11 @@ class PaymentServiceTest {
 	void testGetByIdNotFound() {
 		when(repository.findById("payment1", Payment.class)).thenReturn(Optional.empty());
 
-		ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 			paymentService.getById("payment1");
 		});
 
-		assertEquals("id is not exist", exception.getReason());
+		assertEquals("id is not exist", exception.getMessage());
 	}
 
 	@Test
@@ -144,5 +143,3 @@ class PaymentServiceTest {
 		assertEquals("payment1", responses.get(0).getId());
 	}
 }
-
-

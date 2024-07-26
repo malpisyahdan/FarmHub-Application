@@ -3,20 +3,17 @@ package com.project.app.farmhub.service.impl;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.entity.Review;
 import com.project.app.farmhub.error.ErrorMessageConstant;
 import com.project.app.farmhub.helper.SecurityHelper;
-import com.project.app.farmhub.repository.MasterRepository;
+import com.project.app.farmhub.repository.ReviewRepository;
 import com.project.app.farmhub.request.CreateReviewRequest;
 import com.project.app.farmhub.request.UpdateReviewRequest;
 import com.project.app.farmhub.response.ReviewResponse;
 import com.project.app.farmhub.service.ProductService;
 import com.project.app.farmhub.service.ReviewService;
-import com.project.app.farmhub.service.UserDetailsServiceImp;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ReviewServiceImpl implements ReviewService {
 
-	private final MasterRepository<Review, String> repository;
+	private final ReviewRepository repository;
 	private final UserDetailsServiceImp userService;
 	private final ProductService productService;
 
@@ -38,7 +35,7 @@ public class ReviewServiceImpl implements ReviewService {
 		Review entity = new Review();
 		String currentUserId = SecurityHelper.getCurrentUserId();
 		if (currentUserId == null) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to get the current user ID.");
+			throw new RuntimeException("Unable to get the current user ID.");
 		}
 		entity.setUmkm(userService.getEntityById(currentUserId).orElse(null));
 		mapToEntity(entity, request);
@@ -49,14 +46,13 @@ public class ReviewServiceImpl implements ReviewService {
 	private void validateNonBk(CreateReviewRequest request) {
 
 		productService.getEntityById(request.getProductId())
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-						PROP_PRODUCT + ErrorMessageConstant.IS_NOT_EXISTS));
+				.orElseThrow(() -> new RuntimeException(PROP_PRODUCT + ErrorMessageConstant.IS_NOT_EXISTS));
 
 	}
 
 	private void mapToEntity(Review entity, CreateReviewRequest request) {
 		if (request.getRating() > 100) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rating cannot be more than 100");
+			throw new RuntimeException("Rating cannot be more than 100");
 		}
 		entity.setProduct(productService.getEntityById(request.getProductId()).orElse(null));
 		entity.setRating(request.getRating());
@@ -72,7 +68,7 @@ public class ReviewServiceImpl implements ReviewService {
 			mapToEntity(entity, request);
 			repository.save(entity);
 		}, () -> {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id" + ErrorMessageConstant.IS_NOT_EXISTS);
+			throw new RuntimeException("id " + ErrorMessageConstant.IS_NOT_EXISTS);
 		});
 
 	}
@@ -83,7 +79,7 @@ public class ReviewServiceImpl implements ReviewService {
 		getEntityById(id).ifPresentOrElse(entity -> {
 			repository.delete(entity);
 		}, () -> {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id is not exist");
+			throw new RuntimeException("id is not exist");
 		});
 
 	}
@@ -95,8 +91,7 @@ public class ReviewServiceImpl implements ReviewService {
 
 	@Override
 	public ReviewResponse getById(String id) {
-		Review entity = getEntityById(id)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "id" + " is not exist"));
+		Review entity = getEntityById(id).orElseThrow(() -> new RuntimeException("id is not exist"));
 		return mapToResponse(entity);
 	}
 

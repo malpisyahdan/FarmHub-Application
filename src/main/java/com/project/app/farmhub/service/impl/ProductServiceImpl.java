@@ -3,19 +3,16 @@ package com.project.app.farmhub.service.impl;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.entity.Product;
 import com.project.app.farmhub.error.ErrorMessageConstant;
 import com.project.app.farmhub.helper.SecurityHelper;
-import com.project.app.farmhub.repository.MasterRepository;
+import com.project.app.farmhub.repository.ProductRepository;
 import com.project.app.farmhub.request.CreateProductRequest;
 import com.project.app.farmhub.request.UpdateProductRequest;
 import com.project.app.farmhub.response.ProductResponse;
 import com.project.app.farmhub.service.ProductService;
-import com.project.app.farmhub.service.UserDetailsServiceImp;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -24,9 +21,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
 
-	private final MasterRepository<Product, String> repository;
+	private final ProductRepository repository;
 	private final UserDetailsServiceImp userService;
-	private static final String PROP_CODE = "code";
+	private static final String PROP_CODE = "code ";
 
 	@Transactional
 	@Override
@@ -36,7 +33,7 @@ public class ProductServiceImpl implements ProductService {
 		Product entity = new Product();
 		String currentUserId = SecurityHelper.getCurrentUserId();
 		if (currentUserId == null) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to get the current user ID.");
+			throw new RuntimeException("Unable to get the current user ID.");
 		}
 		entity.setFarmer(userService.getEntityById(currentUserId).orElse(null));
 		mapToEntity(entity, request);
@@ -50,15 +47,15 @@ public class ProductServiceImpl implements ProductService {
 	}
 
 	private void validateBkNotExist(CreateProductRequest request) {
-		long count = repository.countByField("code", request.getCode(), Product.class);
+		long count = repository.countByField(request.getCode(), Product.class);
 		if (count > 0) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, PROP_CODE+ErrorMessageConstant.IS_EXISTS);
+			throw new RuntimeException(PROP_CODE + ErrorMessageConstant.IS_EXISTS);
 		}
 	}
 
 	private void validateBkNotChange(UpdateProductRequest request, Product entity) {
 		if (!request.getCode().equals(entity.getCode())) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, PROP_CODE+ErrorMessageConstant.CANNOT_BE_CHANGE);
+			throw new RuntimeException(PROP_CODE + ErrorMessageConstant.CANNOT_BE_CHANGE);
 		}
 	}
 
@@ -79,7 +76,7 @@ public class ProductServiceImpl implements ProductService {
 			mapToEntity(entity, request);
 			repository.save(entity);
 		}, () -> {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id"+ErrorMessageConstant.IS_NOT_EXISTS);
+			throw new RuntimeException("id " + ErrorMessageConstant.IS_NOT_EXISTS);
 		});
 	}
 
@@ -90,7 +87,7 @@ public class ProductServiceImpl implements ProductService {
 		getEntityById(id).ifPresentOrElse(entity -> {
 			repository.delete(entity);
 		}, () -> {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id"+ ErrorMessageConstant.IS_NOT_EXISTS);
+			throw new RuntimeException("id " + ErrorMessageConstant.IS_NOT_EXISTS);
 		});
 	}
 
@@ -101,8 +98,7 @@ public class ProductServiceImpl implements ProductService {
 
 	@Override
 	public ProductResponse getById(String id) {
-		Product entity = getEntityById(id)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "id is not exist"));
+		Product entity = getEntityById(id).orElseThrow(() -> new RuntimeException("id is not exist"));
 		return mapToResponse(entity);
 	}
 

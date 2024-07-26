@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.project.app.farmhub.service.JwtService;
-import com.project.app.farmhub.service.UserDetailsServiceImp;
+import com.project.app.farmhub.service.impl.UserDetailsServiceImp;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

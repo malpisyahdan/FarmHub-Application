@@ -20,23 +20,22 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.entity.Product;
 import com.project.app.farmhub.entity.Review;
 import com.project.app.farmhub.entity.User;
 import com.project.app.farmhub.helper.SecurityHelper;
-import com.project.app.farmhub.repository.MasterRepository;
+import com.project.app.farmhub.repository.ReviewRepository;
 import com.project.app.farmhub.request.CreateReviewRequest;
 import com.project.app.farmhub.request.UpdateReviewRequest;
 import com.project.app.farmhub.response.ReviewResponse;
 import com.project.app.farmhub.service.impl.ReviewServiceImpl;
+import com.project.app.farmhub.service.impl.UserDetailsServiceImp;
 
 class ReviewServiceTest {
 
 	@Mock
-	private MasterRepository<Review, String> repository;
+	private ReviewRepository repository;
 
 	@Mock
 	private UserDetailsServiceImp userService;
@@ -85,11 +84,11 @@ class ReviewServiceTest {
 
 		when(productService.getEntityById("invalidProductId")).thenReturn(Optional.empty());
 
-		Exception exception = assertThrows(ResponseStatusException.class, () -> {
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 			reviewService.add(request);
 		});
 
-		assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) exception).getStatusCode());
+		assertEquals("product is not exists", exception.getMessage());
 	}
 
 	@Test
@@ -118,11 +117,11 @@ class ReviewServiceTest {
 
 		when(repository.findById("invalidReviewId", Review.class)).thenReturn(Optional.empty());
 
-		Exception exception = assertThrows(ResponseStatusException.class, () -> {
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 			reviewService.edit(request);
 		});
 
-		assertEquals("400 BAD_REQUEST \"idis not exists\"", exception.getMessage());
+		assertEquals("id is not exists", exception.getMessage());
 	}
 
 	@Test
@@ -142,11 +141,11 @@ class ReviewServiceTest {
 
 		when(repository.findById(reviewId, Review.class)).thenReturn(Optional.empty());
 
-		Exception exception = assertThrows(ResponseStatusException.class, () -> {
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 			reviewService.delete(reviewId);
 		});
 
-		assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) exception).getStatusCode());
+		assertEquals("id is not exist", exception.getMessage());
 	}
 
 	@Test
@@ -171,11 +170,11 @@ class ReviewServiceTest {
 
 		when(repository.findById(reviewId, Review.class)).thenReturn(Optional.empty());
 
-		Exception exception = assertThrows(ResponseStatusException.class, () -> {
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> {
 			reviewService.getById(reviewId);
 		});
 
-		assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) exception).getStatusCode());
+		assertEquals("id is not exist", exception.getMessage());
 	}
 
 	@Test

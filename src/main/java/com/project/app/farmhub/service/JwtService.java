@@ -10,7 +10,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import com.project.app.farmhub.entity.User;
-import com.project.app.farmhub.repository.TokenRepositoryImpl;
+import com.project.app.farmhub.repository.TokenRepository;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -26,9 +26,9 @@ public class JwtService {
 	@Value("${application.security.jwt.access-token-expiration}")
 	private long accessTokenExpire;
 
-	private final TokenRepositoryImpl tokenRepository;
+	private final TokenRepository tokenRepository;
 
-	public JwtService(TokenRepositoryImpl tokenRepository) {
+	public JwtService(TokenRepository tokenRepository) {
 		this.tokenRepository = tokenRepository;
 	}
 

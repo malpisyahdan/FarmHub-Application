@@ -5,9 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.project.app.farmhub.common.type.StatusOrder;
 import com.project.app.farmhub.common.type.StatusPayment;
@@ -15,13 +13,12 @@ import com.project.app.farmhub.entity.Order;
 import com.project.app.farmhub.entity.Product;
 import com.project.app.farmhub.error.ErrorMessageConstant;
 import com.project.app.farmhub.helper.SecurityHelper;
-import com.project.app.farmhub.repository.MasterRepository;
+import com.project.app.farmhub.repository.OrderRepository;
 import com.project.app.farmhub.request.CancelOrderRequest;
 import com.project.app.farmhub.request.CreateOrderRequest;
 import com.project.app.farmhub.response.OrderResponse;
 import com.project.app.farmhub.service.OrderService;
 import com.project.app.farmhub.service.ProductService;
-import com.project.app.farmhub.service.UserDetailsServiceImp;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +27,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
-	private final MasterRepository<Order, String> repository;
+	private final OrderRepository repository;
 	private final UserDetailsServiceImp userService;
 	private final ProductService productService;
 
@@ -55,7 +52,7 @@ public class OrderServiceImpl implements OrderService {
 	private void validateNonBk(CreateOrderRequest request) {
 
 		productService.getEntityById(request.getProductId())
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+				.orElseThrow(() -> new RuntimeException(
 						PROP_PRODUCT + ErrorMessageConstant.IS_NOT_EXISTS));
 
 	}
@@ -64,13 +61,13 @@ public class OrderServiceImpl implements OrderService {
 		Optional<Product> productOpt = productService.getEntityById(request.getProductId());
 		if (productOpt.isEmpty()) {
 			Map<String, List<String>> errorDetails = Map.of("productId", List.of("Product tidak ditemukan"));
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorDetails.toString());
+			throw new RuntimeException(errorDetails.toString());
 		}
 		Product product = productOpt.get();
 
 		if (product.getStock() < request.getQuantity()) {
 			Map<String, List<String>> errorDetails = Map.of("quantity", List.of("Stock produk tidak mencukupi"));
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorDetails.toString());
+			throw new RuntimeException(errorDetails.toString());
 		}
 
 	}
@@ -82,7 +79,7 @@ public class OrderServiceImpl implements OrderService {
 		entity.setQuantity(request.getQuantity());
 
 		Product product = productService.getEntityById(request.getProductId()).orElseThrow(
-				() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Product not found with id: " + request.getProductId()));
+				() -> new RuntimeException("Product not found with id: " + request.getProductId()));
 
 		entity.setProduct(product);
 
@@ -107,7 +104,7 @@ public class OrderServiceImpl implements OrderService {
 		getEntityById(id).ifPresentOrElse(entity -> {
 			repository.delete(entity);
 		}, () -> {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id is not exist");
+			throw new RuntimeException("id is not exist");
 		});
 
 	}
@@ -120,7 +117,7 @@ public class OrderServiceImpl implements OrderService {
 	@Override
 	public OrderResponse getById(String id) {
 		Order entity = getEntityById(id)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "id" + " is not exist"));
+				.orElseThrow(() -> new RuntimeException("id is not exist"));
 		return mapToResponse(entity);
 	}
 
@@ -165,16 +162,16 @@ public class OrderServiceImpl implements OrderService {
 	@Override
 	public void cancelOrder(CancelOrderRequest request) {
 		Order order = getEntityById(request.getId())
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order not found with id: " + request.getId()));
+				.orElseThrow(() -> new RuntimeException("Order not found with id: " + request.getId()));
 
 		if (order.getStatus() != StatusOrder.PENDING) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only orders with status PENDING can be canceled");
+			throw new RuntimeException("Only orders with status PENDING can be canceled");
 		}
 
 		order.setStatus(StatusOrder.CANCELLED);
 
 		Product product = productService.getEntityById(order.getProduct().getId()).orElseThrow(
-				() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Product not found with id: " + order.getProduct().getId()));
+				() -> new RuntimeException("Product not found with id: " + order.getProduct().getId()));
 
 		product.setStock(product.getStock() + order.getQuantity());
 
