@@ -58,7 +58,7 @@ FarmHub adalah aplikasi platform untuk menghubungkan petani dengan UMKM (Usaha M
 
    - mvn clean package
    - docker build -t nama_image_docker . 
-   - docker run -p 8080:8080 nama_image_docker
+   - docker run -p 8083:8080 nama_image_docker
 
      or
      
