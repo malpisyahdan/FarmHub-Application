@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE t_users(
     id TEXT NULL DEFAULT uuid_generate_v4() CONSTRAINT t_users_pk PRIMARY KEY,
     first_name TEXT NULL,
