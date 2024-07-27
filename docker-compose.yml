@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   app:
-    image: alpisyahdan29/farmhub
+    image: alpisyahdan29/farmhubapp
     build:
       context: .
     ports:
