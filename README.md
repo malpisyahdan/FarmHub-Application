@@ -30,12 +30,10 @@ FarmHub adalah aplikasi platform untuk menghubungkan petani dengan UMKM (Usaha M
 
      ```
      git clone https://github.com/malpisyahdan/FarmHub-Application.git
-     cd farmhub
      ```
 
 3. **Konfigurasi Database**
    - Buatlah database dengan nama `farmhub`.
-   - Run Query "CREATE EXTENSION IF NOT EXISTS "uuid-ossp";"
    - Konfigurasi koneksi database di `application.properties`:
 
      ```
@@ -54,18 +52,12 @@ FarmHub adalah aplikasi platform untuk menghubungkan petani dengan UMKM (Usaha M
 5. **Menjalankan Aplikasi**
    - Jalankan aplikasi
   
-6. **Dockerize File & Docker Compose**
-
-   - mvn clean package
-   - docker build -t nama_image_docker . 
-   - docker run -p 8083:8080 nama_image_docker
-
-     or
-     
+6. **Docker Compose**
+7.     
     - mvn clean package
     - docker-compose up --build
   
-7. Body Register/Create User for Role FARMER,UMKM and ADMIN
+8. Body Register/Create User for Role FARMER,UMKM and ADMIN
     ```
     - User with role FARMER
         {
@@ -95,7 +87,7 @@ FarmHub adalah aplikasi platform untuk menghubungkan petani dengan UMKM (Usaha M
        }
     ```
    
-8. **API Documentation**
+9. **API Documentation**
    - Berikut adalah contoh beberapa endpoint yang tersedia:
      - `POST /api/v1/farmhub/register`: Registrasi pengguna baru.
      - `POST /api/v1/farmhub/login`: Autentikasi dan mendapatkan token JWT.
